@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileContainer = document.querySelector('.profile-container');
   const socialIcons = document.querySelectorAll('.social-icon');
 
-
+ 
   const DISCORD_USER_ID = '1427299411049840640';
   let lastOnlineTimestamp = parseInt(localStorage.getItem('lastOnlineTimestamp')) || null;
 
@@ -152,27 +152,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 500);
 
 
-  // ── Real visitor counter via CountAPI (CORS-friendly, no auth needed) ────
-  // Namespace = your domain, key = unique counter name.
-  // Counter is created automatically on first hit.
-  const COUNTER_NS  = 'xenostopic-cyber.github.io';
-  const COUNTER_KEY = 'profile-views';
+
+  const COUNTER_NAMESPACE = 'xenostopic';
+  const COUNTER_KEY       = 'profile-views';
+  const COUNTER_BASE      = `https://api.counterapi.dev/v2/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
 
   async function initializeVisitorCounter() {
     try {
       const isNewVisitor = !localStorage.getItem('hasVisited');
-      // /hit increments + returns value; /get just reads
-      const endpoint = isNewVisitor
-        ? `https://api.countapi.xyz/hit/${COUNTER_NS}/${COUNTER_KEY}`
-        : `https://api.countapi.xyz/get/${COUNTER_NS}/${COUNTER_KEY}`;
-      const res  = await fetch(endpoint);
+      const url = isNewVisitor ? `${COUNTER_BASE}/up` : `${COUNTER_BASE}`;
+      const res  = await fetch(url);
       const data = await res.json();
-      if (data.value != null) {
-        visitorCount.textContent = data.value.toLocaleString();
-        if (isNewVisitor) localStorage.setItem('hasVisited', 'true');
+      const count = data.count ?? data.value ?? 0;
+      visitorCount.textContent = count.toLocaleString();
+      if (isNewVisitor) {
+        localStorage.setItem('hasVisited', 'true');
       }
     } catch (err) {
       console.error('Visitor counter failed:', err);
+      visitorCount.textContent = '—';
     }
   }
 
