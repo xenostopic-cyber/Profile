@@ -1,3 +1,40 @@
+class cursorTrailEffect {
+  constructor({ length = 10, size = 8, speed = 0.2 } = {}) {
+    this.mouseX = 0;
+    this.mouseY = 0;
+    this.speed = speed;
+    const container = document.createElement('div');
+    container.className = 'cursor-trail';
+    document.body.appendChild(container);
+    this.dots = Array.from({ length }, (_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'cursor-trail-dot';
+      dot.style.width  = size + 'px';
+      dot.style.height = size + 'px';
+      dot.style.opacity = (1 - i / length).toFixed(2);
+      container.appendChild(dot);
+      return { el: dot, x: 0, y: 0 };
+    });
+    document.addEventListener('mousemove', e => {
+      this.mouseX = e.clientX;
+      this.mouseY = e.clientY;
+    });
+    this._animate();
+  }
+  _animate() {
+    this.dots.forEach((dot, i) => {
+      const target = i === 0
+        ? { x: this.mouseX, y: this.mouseY }
+        : this.dots[i - 1];
+      dot.x += (target.x - dot.x) * this.speed;
+      dot.y += (target.y - dot.y) * this.speed;
+      dot.el.style.left = dot.x + 'px';
+      dot.el.style.top  = dot.y + 'px';
+    });
+    requestAnimationFrame(() => this._animate());
+  }
+}
+
 let hasUserInteracted = false;
 
 function initMedia() {
@@ -39,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileContainer = document.querySelector('.profile-container');
   const socialIcons = document.querySelectorAll('.social-icon');
 
-
+ 
   const DISCORD_USER_ID = '1427299411049840640';
   let lastOnlineTimestamp = parseInt(localStorage.getItem('lastOnlineTimestamp')) || null;
 
@@ -152,27 +189,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 500);
 
 
-  // ── Real visitor counter via CountAPI (CORS-friendly, no auth needed) ────
-  // Namespace = your domain, key = unique counter name.
-  // Counter is created automatically on first hit.
-  const COUNTER_NS  = 'xenostopic-cyber.github.io';
-  const COUNTER_KEY = 'wedgawiuyefgwedgywuqdwgydgb';
+
+  const COUNTER_NAMESPACE = 'xenostopic';
+  const COUNTER_KEY       = 'profile-views';
+  const COUNTER_BASE      = `https://api.counterapi.dev/v2/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
 
   async function initializeVisitorCounter() {
     try {
       const isNewVisitor = !localStorage.getItem('hasVisited');
-      // /hit increments + returns value; /get just reads
-      const endpoint = isNewVisitor
-        ? `https://api.countapi.xyz/hit/${COUNTER_NS}/${COUNTER_KEY}`
-        : `https://api.countapi.xyz/get/${COUNTER_NS}/${COUNTER_KEY}`;
-      const res  = await fetch(endpoint);
+      const url = isNewVisitor ? `${COUNTER_BASE}/up` : `${COUNTER_BASE}`;
+      const res  = await fetch(url);
       const data = await res.json();
-      if (data.value != null) {
-        visitorCount.textContent = data.value.toLocaleString();
-        if (isNewVisitor) localStorage.setItem('hasVisited', 'true');
+      const count = data.count ?? data.value ?? 0;
+      visitorCount.textContent = count.toLocaleString();
+      if (isNewVisitor) {
+        localStorage.setItem('hasVisited', 'true');
       }
     } catch (err) {
       console.error('Visitor counter failed:', err);
+      visitorCount.textContent = '—';
     }
   }
 
@@ -188,23 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     profileBlock.classList.remove('hidden');
     gsap.fromTo(profileBlock,
-      { opacity: 0, y: -50 },
-      { opacity: 1, y: 0, duration: 1, ease: 'power2.out', onComplete: () => {
+      { opacity: 0, y: -50, xPercent: -50, yPercent: -50 },
+      { opacity: 1, y: 0, xPercent: -50, yPercent: -50, duration: 1, ease: 'power2.out', onComplete: () => {
         profileBlock.classList.add('profile-appear');
         profileContainer.classList.add('orbit');
       }}
     );
     if (!isTouchDevice) {
-      try {
-        new cursorTrailEffect({
-          length: 10,
-          size: 8,
-          speed: 0.2
-        });
-        console.log("Cursor trail initialized");
-      } catch (err) {
-        console.error("Failed to initialize cursor trail effect:", err);
-      }
+      new cursorTrailEffect({ length: 10, size: 8, speed: 0.2 });
     }
     typeWriterName();
     typeWriterBio();
@@ -219,8 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     profileBlock.classList.remove('hidden');
     gsap.fromTo(profileBlock,
-      { opacity: 0, y: -50 },
-      { opacity: 1, y: 0, duration: 1, ease: 'power2.out', onComplete: () => {
+      { opacity: 0, y: -50, xPercent: -50, yPercent: -50 },
+      { opacity: 1, y: 0, xPercent: -50, yPercent: -50, duration: 1, ease: 'power2.out', onComplete: () => {
         profileBlock.classList.add('profile-appear');
         profileContainer.classList.add('orbit');
       }}
@@ -414,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add(themeClass);
 
         profileBlock.classList.remove('hidden');
-        gsap.to(profileBlock, { x: 0, opacity: 1, duration: 0.5, ease: 'power2.out' });
+        gsap.to(profileBlock, { x: 0, opacity: 1, duration: 0.5, ease: 'power2.out', xPercent: -50, yPercent: -50 });
 
         backgroundVideo.addEventListener('canplay', function onCanPlay() {
           backgroundVideo.removeEventListener('canplay', onCanPlay);
