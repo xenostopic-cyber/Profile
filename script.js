@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Namespace = your domain, key = unique counter name.
   // Counter is created automatically on first hit.
   const COUNTER_NS  = 'xenostopic-cyber.github.io';
-  const COUNTER_KEY = 'profile-views';
+  const COUNTER_KEY = 'wedgawiuyefgwedgywuqdwgydgb';
 
   async function initializeVisitorCounter() {
     try {
