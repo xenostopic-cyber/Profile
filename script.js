@@ -192,14 +192,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const COUNTER_NAMESPACE = 'xenostopic';
   const COUNTER_KEY       = 'profile-views';
-  const COUNTER_BASE      = `https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
+  const COUNTER_BASE      = `https://api.counterapi.dev/v2/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
+  const COUNTER_API_KEY   = 'ut_HvBsBPnZ570sWWIwLF3MNbYxFG46pOCd5C9Uj9Wd';
 
   async function initializeVisitorCounter() {
     try {
       const isNewVisitor = !localStorage.getItem('hasVisited');
-      // v1 auto-creates the counter on first hit; /up increments and returns count
       const url = isNewVisitor ? `${COUNTER_BASE}/up` : `${COUNTER_BASE}`;
-      const res  = await fetch(url);
+      const res  = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${COUNTER_API_KEY}` }
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const count = data.count ?? data.value ?? 0;
