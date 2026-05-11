@@ -1,82 +1,161 @@
-class cursorTrailEffect {
-  constructor({ length = 10, size = 8, speed = 0.2 } = {}) {
+// ── Cursor Trail Effect ────────────────────────────────────────────────────
+class CursorTrailEffect {
+  constructor(style = 'dots') {
     this.mouseX = 0;
     this.mouseY = 0;
-    this.speed = speed;
-    const container = document.createElement('div');
-    container.className = 'cursor-trail';
-    document.body.appendChild(container);
-    this.dots = Array.from({ length }, (_, i) => {
-      const dot = document.createElement('div');
-      dot.className = 'cursor-trail-dot';
-      dot.style.width  = size + 'px';
-      dot.style.height = size + 'px';
-      dot.style.opacity = (1 - i / length).toFixed(2);
-      container.appendChild(dot);
-      return { el: dot, x: 0, y: 0 };
-    });
+    this.style  = style;
+    this.container = null;
+    this.dots   = [];
+    this.animId = null;
+    this._spawnActive = false;
+
     document.addEventListener('mousemove', e => {
       this.mouseX = e.clientX;
       this.mouseY = e.clientY;
     });
-    this._animate();
+
+    this._init();
   }
-  _animate() {
-    this.dots.forEach((dot, i) => {
-      const target = i === 0
-        ? { x: this.mouseX, y: this.mouseY }
-        : this.dots[i - 1];
-      dot.x += (target.x - dot.x) * this.speed;
-      dot.y += (target.y - dot.y) * this.speed;
-      dot.el.style.left = dot.x + 'px';
-      dot.el.style.top  = dot.y + 'px';
+
+  _clearContainer() {
+    if (this.animId) { cancelAnimationFrame(this.animId); this.animId = null; }
+    this._spawnActive = false;
+    if (this.container) { this.container.innerHTML = ''; }
+    this.dots = [];
+  }
+
+  _init() {
+    this._clearContainer();
+    if (this.style === 'off') return;
+
+    if (!this.container) {
+      this.container = document.createElement('div');
+      this.container.className = 'cursor-trail';
+      document.body.appendChild(this.container);
+    }
+
+    if      (this.style === 'dots')     this._initDots();
+    else if (this.style === 'sparkles') this._initSparkles();
+    else if (this.style === 'comet')    this._initComet();
+  }
+
+  _initDots() {
+    const length = 12, speed = 0.2;
+    this.dots = Array.from({ length }, (_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'cursor-trail-dot';
+      const size = 8;
+      dot.style.width  = size + 'px';
+      dot.style.height = size + 'px';
+      dot.style.opacity = (1 - i / length).toFixed(2);
+      this.container.appendChild(dot);
+      return { el: dot, x: 0, y: 0 };
     });
-    requestAnimationFrame(() => this._animate());
+    const animate = () => {
+      this.dots.forEach((dot, i) => {
+        const target = i === 0 ? { x: this.mouseX, y: this.mouseY } : this.dots[i - 1];
+        dot.x += (target.x - dot.x) * speed;
+        dot.y += (target.y - dot.y) * speed;
+        dot.el.style.left = dot.x + 'px';
+        dot.el.style.top  = dot.y + 'px';
+      });
+      this.animId = requestAnimationFrame(animate);
+    };
+    this.animId = requestAnimationFrame(animate);
+  }
+
+  _initSparkles() {
+    this._spawnActive = true;
+    const glyphs = ['✦', '✧', '★', '⋆', '✺', '·', '✼'];
+    const spawn = () => {
+      if (!this._spawnActive) return;
+      const s = document.createElement('div');
+      s.className = 'cursor-trail-sparkle';
+      s.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+      const offsetX = (Math.random() - 0.5) * 24;
+      const offsetY = (Math.random() - 0.5) * 24;
+      s.style.left = (this.mouseX + offsetX) + 'px';
+      s.style.top  = (this.mouseY + offsetY) + 'px';
+      this.container.appendChild(s);
+      const riseY = -(30 + Math.random() * 40);
+      const rot   = (Math.random() - 0.5) * 360;
+      s.animate([
+        { opacity: 1, transform: 'translate(-50%,-50%) scale(1.1) rotate(0deg)' },
+        { opacity: 0, transform: `translate(-50%, calc(-50% + ${riseY}px)) scale(0.2) rotate(${rot}deg)` }
+      ], { duration: 500 + Math.random() * 400, easing: 'ease-out' })
+        .onfinish = () => s.remove();
+      setTimeout(spawn, 55);
+    };
+    spawn();
+  }
+
+  _initComet() {
+    const length = 22, speed = 0.13;
+    this.dots = Array.from({ length }, (_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'cursor-trail-dot cursor-trail-comet';
+      const size = Math.max(2, 11 - i * 0.42);
+      dot.style.width   = size + 'px';
+      dot.style.height  = size + 'px';
+      dot.style.opacity = (1 - i / length).toFixed(2);
+      this.container.appendChild(dot);
+      return { el: dot, x: 0, y: 0 };
+    });
+    const animate = () => {
+      this.dots.forEach((dot, i) => {
+        const target = i === 0 ? { x: this.mouseX, y: this.mouseY } : this.dots[i - 1];
+        dot.x += (target.x - dot.x) * speed;
+        dot.y += (target.y - dot.y) * speed;
+        dot.el.style.left = dot.x + 'px';
+        dot.el.style.top  = dot.y + 'px';
+      });
+      this.animId = requestAnimationFrame(animate);
+    };
+    this.animId = requestAnimationFrame(animate);
+  }
+
+  setStyle(style) {
+    this.style = style;
+    this._init();
   }
 }
+// ──────────────────────────────────────────────────────────────────────────────
 
 let hasUserInteracted = false;
 
 function initMedia() {
-  console.log("initMedia called");
   const backgroundMusic = document.getElementById('background-music');
   const backgroundVideo = document.getElementById('background');
-  if (!backgroundMusic || !backgroundVideo) {
-    console.error("Media elements not found");
-    return;
-  }
+  if (!backgroundMusic || !backgroundVideo) return;
   backgroundMusic.volume = 0.3;
-  backgroundVideo.muted = true; 
-
-  
-  backgroundVideo.play().catch(err => {
-    console.error("Failed to play background video:", err);
-  });
+  backgroundVideo.muted  = true;
+  backgroundVideo.play().catch(() => {});
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const startScreen = document.getElementById('start-screen');
-  const startText = document.getElementById('start-text');
-  const profileName = document.getElementById('profile-name');
-  const profileBio = document.getElementById('profile-bio');
-  const visitorCount = document.getElementById('visitor-count');
-  const backgroundMusic = document.getElementById('background-music');
-  const animeMusic = document.getElementById('anime-music');
-  const homeButton = document.getElementById('home-theme');
-  const animeButton = document.getElementById('anime-theme');
-  const volumeIcon = document.getElementById('volume-icon');
-  const volumeSlider = document.getElementById('volume-slider');
+  const startScreen        = document.getElementById('start-screen');
+  const startText          = document.getElementById('start-text');
+  const profileName        = document.getElementById('profile-name');
+  const profileBio         = document.getElementById('profile-bio');
+  const visitorCount       = document.getElementById('visitor-count');
+  const backgroundMusic    = document.getElementById('background-music');
+  const animeMusic         = document.getElementById('anime-music');
+  const homeButton         = document.getElementById('home-theme');
+  const animeButton        = document.getElementById('anime-theme');
+  const volumeIcon         = document.getElementById('volume-icon');
+  const volumeSlider       = document.getElementById('volume-slider');
   const transparencySlider = document.getElementById('transparency-slider');
-  const backgroundVideo = document.getElementById('background');
-  const glitchOverlay = document.querySelector('.glitch-overlay');
-  const profileBlock = document.getElementById('profile-block');
-  const presenceDot = document.getElementById('presence-dot');
-  const presenceText = document.getElementById('presence-text');
-  const profilePicture = document.querySelector('.profile-picture');
-  const profileContainer = document.querySelector('.profile-container');
-  const socialIcons = document.querySelectorAll('.social-icon');
+  const backgroundVideo    = document.getElementById('background');
+  const glitchOverlay      = document.querySelector('.glitch-overlay');
+  const profileBlock       = document.getElementById('profile-block');
+  const presenceDot        = document.getElementById('presence-dot');
+  const presenceText       = document.getElementById('presence-text');
+  const profilePicture     = document.querySelector('.profile-picture');
+  const profileContainer   = document.querySelector('.profile-container');
+  const socialIcons        = document.querySelectorAll('.social-icon');
+  const trailBtn           = document.getElementById('trail-btn');
 
- 
+  // ── Discord Presence (Lanyard) ─────────────────────────────────────────────
   const DISCORD_USER_ID = '1427299411049840640';
   let lastOnlineTimestamp = parseInt(localStorage.getItem('lastOnlineTimestamp')) || null;
 
@@ -90,20 +169,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updatePresenceUI(status) {
     presenceDot.className = 'presence-dot ' + status;
-    if (status === 'online') {
-      presenceText.textContent = 'Online';
-    } else if (status === 'idle') {
-      presenceText.textContent = 'Idle';
-    } else if (status === 'dnd') {
-      presenceText.textContent = 'Do Not Disturb';
-    } else {
-      presenceText.textContent = lastOnlineTimestamp ? formatLastSeen(lastOnlineTimestamp) : 'Offline';
-    }
+    if      (status === 'online') presenceText.textContent = 'Online';
+    else if (status === 'idle')   presenceText.textContent = 'Idle';
+    else if (status === 'dnd')    presenceText.textContent = 'Do Not Disturb';
+    else presenceText.textContent = lastOnlineTimestamp ? formatLastSeen(lastOnlineTimestamp) : 'Offline';
   }
 
   async function fetchPresence() {
     try {
-      const res = await fetch(`https://api.lanyard.rest/v1/users/${DISCORD_USER_ID}`);
+      const res  = await fetch(`https://api.lanyard.rest/v1/users/${DISCORD_USER_ID}`);
       const data = await res.json();
       if (!data.success) return;
       const status = data.data.discord_status;
@@ -124,159 +198,161 @@ document.addEventListener('DOMContentLoaded', () => {
       presenceText.textContent = formatLastSeen(lastOnlineTimestamp);
     }
   }, 60000);
-  // ─────────────────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────────────
 
-  
-  const cursor = document.querySelector('.custom-cursor');
-  const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
+  // ── Custom cursor ──────────────────────────────────────────────────────────
+  const cursor      = document.querySelector('.custom-cursor');
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
   if (isTouchDevice) {
     document.body.classList.add('touch-device');
-    
-    document.addEventListener('touchstart', (e) => {
-      const touch = e.touches[0];
-      cursor.style.left = touch.clientX + 'px';
-      cursor.style.top = touch.clientY + 'px';
+    document.addEventListener('touchstart', e => {
+      cursor.style.left    = e.touches[0].clientX + 'px';
+      cursor.style.top     = e.touches[0].clientY + 'px';
       cursor.style.display = 'block';
     });
-
-    document.addEventListener('touchmove', (e) => {
-      const touch = e.touches[0];
-      cursor.style.left = touch.clientX + 'px';
-      cursor.style.top = touch.clientY + 'px';
+    document.addEventListener('touchmove', e => {
+      cursor.style.left    = e.touches[0].clientX + 'px';
+      cursor.style.top     = e.touches[0].clientY + 'px';
       cursor.style.display = 'block';
     });
-
-    document.addEventListener('touchend', () => {
-      cursor.style.display = 'none'; 
-    });
+    document.addEventListener('touchend', () => { cursor.style.display = 'none'; });
   } else {
-
-    document.addEventListener('mousemove', (e) => {
-      cursor.style.left = e.clientX + 'px';
-      cursor.style.top = e.clientY + 'px';
+    document.addEventListener('mousemove', e => {
+      cursor.style.left    = e.clientX + 'px';
+      cursor.style.top     = e.clientY + 'px';
       cursor.style.display = 'block';
     });
-
     document.addEventListener('mousedown', () => {
       cursor.style.transform = 'scale(0.8) translate(-50%, -50%)';
     });
-
     document.addEventListener('mouseup', () => {
       cursor.style.transform = 'scale(1) translate(-50%, -50%)';
     });
   }
+  // ──────────────────────────────────────────────────────────────────────────
 
-
-  const startMessage = "Click here to see the motion baby";
+  // ── Start screen typewriter ────────────────────────────────────────────────
+  const startMessage = 'Click here to see the motion baby';
   let startTextContent = '';
   let startIndex = 0;
   let startCursorVisible = true;
+
+  // Cursor blink for start screen only (runs independently)
+  setInterval(() => {
+    startCursorVisible = !startCursorVisible;
+    if (startText) startText.textContent = startTextContent + (startCursorVisible ? '|' : ' ');
+  }, 500);
 
   function typeWriterStart() {
     if (startIndex < startMessage.length) {
       startTextContent = startMessage.slice(0, startIndex + 1);
       startIndex++;
     }
-    startText.textContent = startTextContent + (startCursorVisible ? '|' : ' ');
+    if (startText) startText.textContent = startTextContent + (startCursorVisible ? '|' : ' ');
     setTimeout(typeWriterStart, 100);
   }
 
+  typeWriterStart();
+  // ──────────────────────────────────────────────────────────────────────────
 
-  setInterval(() => {
-    startCursorVisible = !startCursorVisible;
-    startText.textContent = startTextContent + (startCursorVisible ? '|' : ' ');
-  }, 500);
-
-
-
-  const COUNTER_NAMESPACE = 'xenostopic';
+  // ── Visitor Counter ────────────────────────────────────────────────────────
+  const COUNTER_NS        = 'xenostopic-xyz';
   const COUNTER_KEY       = 'profile-views';
-  const COUNTER_BASE      = `https://api.counterapi.dev/v2/${COUNTER_NAMESPACE}/${COUNTER_KEY}`;
-  const COUNTER_API_KEY   = 'ut_HvBsBPnZ570sWWIwLF3MNbYxFG46pOCd5C9Uj9Wd';
+  const COUNTER_URL       = `https://api.counterapi.dev/v2/${COUNTER_NS}/${COUNTER_KEY}`;
+  const COUNTER_CACHE_KEY = 'xeno_lastCount';
+
+  function fetchWithTimeout(url, opts = {}, ms = 6000) {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  }
 
   async function initializeVisitorCounter() {
+    const cached = localStorage.getItem(COUNTER_CACHE_KEY);
+    // Show cached count right away — never a blank/dash while loading
+    if (cached) visitorCount.textContent = Number(cached).toLocaleString();
+
+    // Attempt 1: counterapi.dev
     try {
-      const isNewVisitor = !localStorage.getItem('hasVisited');
-      const url = isNewVisitor ? `${COUNTER_BASE}/up` : `${COUNTER_BASE}`;
-      const res  = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${COUNTER_API_KEY}` }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const count = data.count ?? data.value ?? 0;
-      visitorCount.textContent = count.toLocaleString();
-      if (isNewVisitor) {
-        localStorage.setItem('hasVisited', 'true');
+      let res = await fetchWithTimeout(`${COUNTER_URL}/up`);
+      if (res.status === 404) {
+        await fetchWithTimeout(COUNTER_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: 0 })
+        });
+        res = await fetchWithTimeout(`${COUNTER_URL}/up`);
       }
-    } catch (err) {
-      console.error('Visitor counter failed:', err);
-      visitorCount.textContent = '—';
+      if (res.ok) {
+        const data  = await res.json();
+        const count = data.count ?? data.value ?? data.hits ?? null;
+        if (count !== null) {
+          visitorCount.textContent = Number(count).toLocaleString();
+          localStorage.setItem(COUNTER_CACHE_KEY, count);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('counterapi.dev failed, trying fallback…', e);
     }
+
+    // Attempt 2: hits.seeyoufarm.com
+    try {
+      const canonical = encodeURIComponent('https://xenostopic.github.io');
+      const badgeUrl  = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${canonical}`;
+      const res       = await fetchWithTimeout(badgeUrl);
+      if (res.ok) {
+        const svg  = await res.text();
+        const nums = [...svg.matchAll(/>(\d[\d,]*)</g)]
+          .map(m => parseInt(m[1].replace(/,/g, ''), 10))
+          .filter(n => !isNaN(n));
+        if (nums.length) {
+          const count = Math.max(...nums);
+          visitorCount.textContent = count.toLocaleString();
+          localStorage.setItem(COUNTER_CACHE_KEY, count);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('hits.seeyoufarm.com fallback failed:', e);
+    }
+
+    // Both failed — keep cached count or show 0 (never a dash)
+    if (!cached) visitorCount.textContent = '0';
   }
 
   initializeVisitorCounter();
-  // ─────────────────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────────────
 
+  // ── Cursor trail style selector ────────────────────────────────────────────
+  const trailStyles = ['dots', 'sparkles', 'comet', 'off'];
+  const trailIcons  = { dots: '⬤', sparkles: '✦', comet: '☄', off: '⊘' };
+  let trailStyleIdx = 0;
+  let trailEffect   = null; // initialised after start screen click
 
-  startScreen.addEventListener('click', () => {
-    startScreen.classList.add('hidden');
-    backgroundMusic.muted = false;
-    backgroundMusic.play().catch(err => {
-      console.error("Failed to play music after start screen click:", err);
-    });
-    profileBlock.classList.remove('hidden');
-    gsap.fromTo(profileBlock,
-      { opacity: 0, y: -50, xPercent: -50, yPercent: -50 },
-      { opacity: 1, y: 0, xPercent: -50, yPercent: -50, duration: 1, ease: 'power2.out', onComplete: () => {
-        profileBlock.classList.add('profile-appear');
-        profileContainer.classList.add('orbit');
-      }}
-    );
-    if (!isTouchDevice) {
-      new cursorTrailEffect({ length: 10, size: 8, speed: 0.2 });
-    }
-    typeWriterName();
-    typeWriterBio();
-  });
+  if (trailBtn) {
+    trailBtn.textContent = trailIcons[trailStyles[trailStyleIdx]];
+    trailBtn.title       = 'Cursor Trail Style';
 
-  startScreen.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    startScreen.classList.add('hidden');
-    backgroundMusic.muted = false;
-    backgroundMusic.play().catch(err => {
-      console.error("Failed to play music after start screen touch:", err);
-    });
-    profileBlock.classList.remove('hidden');
-    gsap.fromTo(profileBlock,
-      { opacity: 0, y: -50, xPercent: -50, yPercent: -50 },
-      { opacity: 1, y: 0, xPercent: -50, yPercent: -50, duration: 1, ease: 'power2.out', onComplete: () => {
-        profileBlock.classList.add('profile-appear');
-        profileContainer.classList.add('orbit');
-      }}
-    );
-    if (!isTouchDevice) {
-      try {
-        new cursorTrailEffect({
-          length: 10,
-          size: 8,
-          speed: 0.2
-        });
-        console.log("Cursor trail initialized");
-      } catch (err) {
-        console.error("Failed to initialize cursor trail effect:", err);
-      }
-    }
-    typeWriterName();
-    typeWriterBio();
-  });
+    const cycleTrail = () => {
+      trailStyleIdx = (trailStyleIdx + 1) % trailStyles.length;
+      const style   = trailStyles[trailStyleIdx];
+      trailBtn.textContent = trailIcons[style];
+      if (trailEffect) trailEffect.setStyle(style);
+    };
+    trailBtn.addEventListener('click', cycleTrail);
+    trailBtn.addEventListener('touchstart', e => { e.preventDefault(); cycleTrail(); });
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
-
-  const name = "Xenostopic";
+  // ── Name typewriter ────────────────────────────────────────────────────────
+  const name = 'Xenostopic';
   let nameText = '';
   let nameIndex = 0;
   let isNameDeleting = false;
   let nameCursorVisible = true;
+  let nameCursorInterval = null;
 
   function typeWriterName() {
     if (!isNameDeleting && nameIndex < name.length) {
@@ -300,30 +376,36 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(typeWriterName, isNameDeleting ? 150 : 300);
   }
 
-  setInterval(() => {
-    nameCursorVisible = !nameCursorVisible;
-    profileName.textContent = nameText + (nameCursorVisible ? '|' : ' ');
-  }, 500);
+  function startNameCursorBlink() {
+    if (nameCursorInterval) return;
+    nameCursorInterval = setInterval(() => {
+      nameCursorVisible = !nameCursorVisible;
+      profileName.textContent = nameText + (nameCursorVisible ? '|' : ' ');
+    }, 500);
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
-
+  // ── Bio typewriter ─────────────────────────────────────────────────────────
   const bioMessages = [
-    "Gambling is always a 50/50, either you lose or you win!",
-    "\"Lost in the static!\""
+    'Gambling is always a 50/50, either you lose or you win!',
+    'Lost in the static!'
   ];
   let bioText = '';
   let bioIndex = 0;
   let bioMessageIndex = 0;
   let isBioDeleting = false;
   let bioCursorVisible = true;
+  let bioCursorInterval = null;
 
   function typeWriterBio() {
-    if (!isBioDeleting && bioIndex < bioMessages[bioMessageIndex].length) {
-      bioText = bioMessages[bioMessageIndex].slice(0, bioIndex + 1);
+    const msg = bioMessages[bioMessageIndex];
+    if (!isBioDeleting && bioIndex < msg.length) {
+      bioText = msg.slice(0, bioIndex + 1);
       bioIndex++;
     } else if (isBioDeleting && bioIndex > 0) {
-      bioText = bioMessages[bioMessageIndex].slice(0, bioIndex - 1);
+      bioText = msg.slice(0, bioIndex - 1);
       bioIndex--;
-    } else if (bioIndex === bioMessages[bioMessageIndex].length) {
+    } else if (bioIndex === msg.length) {
       isBioDeleting = true;
       setTimeout(typeWriterBio, 2000);
       return;
@@ -339,120 +421,117 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(typeWriterBio, isBioDeleting ? 75 : 150);
   }
 
-  setInterval(() => {
-    bioCursorVisible = !bioCursorVisible;
-    profileBio.textContent = bioText + (bioCursorVisible ? '|' : ' ');
-  }, 500);
+  function startBioCursorBlink() {
+    if (bioCursorInterval) return;
+    bioCursorInterval = setInterval(() => {
+      bioCursorVisible = !bioCursorVisible;
+      profileBio.textContent = bioText + (bioCursorVisible ? '|' : ' ');
+    }, 500);
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 
+  // ── Start screen activation ────────────────────────────────────────────────
+  function activateFromStartScreen() {
+    startScreen.classList.add('hidden');
+    backgroundMusic.muted = false;
+    backgroundMusic.play().catch(() => {});
 
+    // Ensure profile block is visible and properly centred before animating
+    profileBlock.style.opacity  = '0';
+    profileBlock.style.display  = 'flex';
+
+    gsap.fromTo(
+      profileBlock,
+      { opacity: 0, y: -50, xPercent: -50, yPercent: -50 },
+      {
+        opacity: 1, y: 0, xPercent: -50, yPercent: -50,
+        duration: 1, ease: 'power2.out',
+        onComplete: () => {
+          // Don't add profile-appear — GSAP already handled the entrance
+          profileContainer.classList.add('orbit');
+        }
+      }
+    );
+
+    if (!isTouchDevice) {
+      trailEffect = new CursorTrailEffect(trailStyles[trailStyleIdx]);
+    }
+
+    // Start typewriters and their cursor blinks only now (no premature blinking)
+    startNameCursorBlink();
+    startBioCursorBlink();
+    typeWriterName();
+    typeWriterBio();
+  }
+
+  startScreen.addEventListener('click',      activateFromStartScreen);
+  startScreen.addEventListener('touchstart', e => { e.preventDefault(); activateFromStartScreen(); });
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ── Audio controls ─────────────────────────────────────────────────────────
   let currentAudio = backgroundMusic;
-  let isMuted = false;
+  let isMuted      = false;
 
-  volumeIcon.addEventListener('click', () => {
-    isMuted = !isMuted;
-    currentAudio.muted = isMuted;
-    volumeIcon.innerHTML = isMuted
-      ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>`
-      : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>`;
-  });
+  const muteIcon   = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>`;
+  const unmuteIcon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>`;
 
-  volumeIcon.addEventListener('touchstart', (e) => {
-    e.preventDefault();
+  const toggleMute = () => {
     isMuted = !isMuted;
-    currentAudio.muted = isMuted;
-    volumeIcon.innerHTML = isMuted
-      ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>`
-      : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>`;
-  });
+    currentAudio.muted  = isMuted;
+    volumeIcon.innerHTML = isMuted ? muteIcon : unmuteIcon;
+  };
+
+  volumeIcon.addEventListener('click',      toggleMute);
+  volumeIcon.addEventListener('touchstart', e => { e.preventDefault(); toggleMute(); });
 
   volumeSlider.addEventListener('input', () => {
-    currentAudio.volume = volumeSlider.value;
-    isMuted = false;
-    currentAudio.muted = false;
-    volumeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>`;
+    currentAudio.volume  = volumeSlider.value;
+    isMuted              = false;
+    currentAudio.muted   = false;
+    volumeIcon.innerHTML = unmuteIcon;
   });
+  // ──────────────────────────────────────────────────────────────────────────
 
-
+  // ── Transparency slider ────────────────────────────────────────────────────
   transparencySlider.addEventListener('input', () => {
     const opacity = transparencySlider.value;
-    if (opacity == 0) {
-      profileBlock.style.background = 'rgba(0, 0, 0, 0)';
-      profileBlock.style.borderOpacity = '0';
-      profileBlock.style.borderColor = 'transparent';
-      profileBlock.style.backdropFilter = 'none';
-      profileBlock.style.pointerEvents = 'auto';
-      socialIcons.forEach(icon => {
-        icon.style.pointerEvents = 'auto';
-        icon.style.opacity = '1';
-      });
-      profilePicture.style.pointerEvents = 'auto';
-      profilePicture.style.opacity = '1';
-      profileName.style.opacity = '1';
-      profileBio.style.opacity = '1';
-      visitorCount.style.opacity = '1';
-    } else {
-      profileBlock.style.background = `rgba(0, 0, 0, ${opacity})`;
-      profileBlock.style.borderOpacity = opacity;
-      profileBlock.style.borderColor = '';
-      profileBlock.style.backdropFilter = `blur(${10 * opacity}px)`;
-      profileBlock.style.pointerEvents = 'auto';
-      socialIcons.forEach(icon => {
-        icon.style.pointerEvents = 'auto';
-        icon.style.opacity = '1';
-      });
-      profilePicture.style.pointerEvents = 'auto';
-      profilePicture.style.opacity = '1';
-      profileName.style.opacity = '1';
-      profileBio.style.opacity = '1';
-      visitorCount.style.opacity = '1';
-    }
+    profileBlock.style.background     = opacity == 0 ? 'rgba(0,0,0,0)' : `rgba(0,0,0,${opacity})`;
+    profileBlock.style.borderColor    = opacity == 0 ? 'transparent' : '';
+    profileBlock.style.backdropFilter = opacity == 0 ? 'none' : `blur(${10 * opacity}px)`;
   });
+  // ──────────────────────────────────────────────────────────────────────────
 
-
+  // ── Theme switcher ─────────────────────────────────────────────────────────
   function switchTheme(videoSrc, audio, themeClass) {
-    let primaryColor;
-    switch (themeClass) {
-      case 'home-theme':
-        primaryColor = '#00CED1';
-        break;
-      case 'anime-theme':
-        primaryColor = '#DC2626';
-        break;
-      default:
-        primaryColor = '#00CED1';
-    }
+    const colorMap = {
+      'home-theme':  '#00CED1',
+      'anime-theme': '#DC2626',
+    };
+    const primaryColor = colorMap[themeClass] || '#00CED1';
     document.documentElement.style.setProperty('--primary-color', primaryColor);
 
     gsap.to(backgroundVideo, {
-      opacity: 0,
-      duration: 0.5,
-      ease: 'power2.in',
+      opacity: 0, duration: 0.5, ease: 'power2.in',
       onComplete: () => {
         backgroundVideo.src = videoSrc;
         backgroundVideo.load();
 
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio.currentTime = 0;
-        }
-        currentAudio = audio;
+        if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+        currentAudio        = audio;
         currentAudio.volume = volumeSlider.value;
-        currentAudio.muted = isMuted;
-        currentAudio.play().catch(err => console.error("Failed to play theme music:", err));
+        currentAudio.muted  = isMuted;
+        currentAudio.play().catch(() => {});
 
         document.body.classList.remove('home-theme', 'anime-theme');
         document.body.classList.add(themeClass);
 
-        profileBlock.classList.remove('hidden');
         gsap.to(profileBlock, { x: 0, opacity: 1, duration: 0.5, ease: 'power2.out', xPercent: -50, yPercent: -50 });
 
         backgroundVideo.addEventListener('canplay', function onCanPlay() {
           backgroundVideo.removeEventListener('canplay', onCanPlay);
-          backgroundVideo.play().catch(err => console.error("Failed to play video:", err));
+          backgroundVideo.play().catch(() => {});
           gsap.to(backgroundVideo, {
-            opacity: 1,
-            duration: 0.5,
-            ease: 'power2.out',
+            opacity: 1, duration: 0.5, ease: 'power2.out',
             onComplete: () => {
               profileContainer.classList.remove('orbit');
               void profileContainer.offsetWidth;
@@ -464,90 +543,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  homeButton.addEventListener('click',      () => switchTheme('assets/background.mp4', backgroundMusic, 'home-theme'));
+  homeButton.addEventListener('touchstart', e => { e.preventDefault(); switchTheme('assets/background.mp4', backgroundMusic, 'home-theme'); });
+  animeButton.addEventListener('click',      () => switchTheme('assets/anime_background.mp4', animeMusic, 'anime-theme'));
+  animeButton.addEventListener('touchstart', e => { e.preventDefault(); switchTheme('assets/anime_background.mp4', animeMusic, 'anime-theme'); });
+  // ──────────────────────────────────────────────────────────────────────────
 
-  homeButton.addEventListener('click', () => {
-    switchTheme('assets/background.mp4', backgroundMusic, 'home-theme');
-  });
-  homeButton.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    switchTheme('assets/background.mp4', backgroundMusic, 'home-theme');
-  });
-
-  animeButton.addEventListener('click', () => {
-    switchTheme('assets/anime_background.mp4', animeMusic, 'anime-theme');
-  });
-  animeButton.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    switchTheme('assets/anime_background.mp4', animeMusic, 'anime-theme');
-  });
-
- 
+  // ── 3-D card tilt ─────────────────────────────────────────────────────────
   function handleTilt(e, element) {
-    const rect = element.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    let clientX, clientY;
-
-    if (e.type === 'touchmove') {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const mouseX = clientX - centerX;
-    const mouseY = clientY - centerY;
-
+    const rect    = element.getBoundingClientRect();
+    const centerX = rect.left + rect.width  / 2;
+    const centerY = rect.top  + rect.height / 2;
+    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
     const maxTilt = 15;
-    const tiltX = (mouseY / rect.height) * maxTilt;
-    const tiltY = -(mouseX / rect.width) * maxTilt;
-
     gsap.to(element, {
-      rotationX: tiltX,
-      rotationY: tiltY,
-      duration: 0.3,
-      ease: 'power2.out',
-      transformPerspective: 1000
+      rotationX: ((clientY - centerY) / rect.height) * maxTilt,
+      rotationY: -((clientX - centerX) / rect.width) * maxTilt,
+      duration: 0.3, ease: 'power2.out', transformPerspective: 1000
     });
   }
 
-  profileBlock.addEventListener('mousemove', (e) => handleTilt(e, profileBlock));
-  profileBlock.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    handleTilt(e, profileBlock);
-  });
+  const resetTilt = el => gsap.to(el, { rotationX: 0, rotationY: 0, duration: 0.5, ease: 'power2.out' });
 
-  profileBlock.addEventListener('mouseleave', () => {
-    gsap.to(profileBlock, {
-      rotationX: 0,
-      rotationY: 0,
-      duration: 0.5,
-      ease: 'power2.out'
-    });
-  });
-  profileBlock.addEventListener('touchend', () => {
-    gsap.to(profileBlock, {
-      rotationX: 0,
-      rotationY: 0,
-      duration: 0.5,
-      ease: 'power2.out'
-    });
-  });
+  profileBlock.addEventListener('mousemove',  e => handleTilt(e, profileBlock));
+  profileBlock.addEventListener('touchmove',  e => { e.preventDefault(); handleTilt(e, profileBlock); });
+  profileBlock.addEventListener('mouseleave', () => resetTilt(profileBlock));
+  profileBlock.addEventListener('touchend',   () => resetTilt(profileBlock));
+  // ──────────────────────────────────────────────────────────────────────────
 
-
-
+  // ── Profile picture interactions ───────────────────────────────────────────
   profilePicture.addEventListener('mouseenter', () => {
     glitchOverlay.style.opacity = '1';
-    setTimeout(() => {
-      glitchOverlay.style.opacity = '0';
-    }, 500);
+    setTimeout(() => { glitchOverlay.style.opacity = '0'; }, 500);
   });
 
-
-  profilePicture.addEventListener('click', () => {
-    profileContainer.classList.remove('fast-orbit');
-    profileContainer.classList.remove('orbit');
+  const spinOrbit = () => {
+    profileContainer.classList.remove('fast-orbit', 'orbit');
     void profileContainer.offsetWidth;
     profileContainer.classList.add('fast-orbit');
     setTimeout(() => {
@@ -555,22 +587,9 @@ document.addEventListener('DOMContentLoaded', () => {
       void profileContainer.offsetWidth;
       profileContainer.classList.add('orbit');
     }, 500);
-  });
+  };
 
-  profilePicture.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    profileContainer.classList.remove('fast-orbit');
-    profileContainer.classList.remove('orbit');
-    void profileContainer.offsetWidth;
-    profileContainer.classList.add('fast-orbit');
-    setTimeout(() => {
-      profileContainer.classList.remove('fast-orbit');
-      void profileContainer.offsetWidth;
-      profileContainer.classList.add('orbit');
-    }, 500);
-  });
-
-
-
-  typeWriterStart();
+  profilePicture.addEventListener('click',      spinOrbit);
+  profilePicture.addEventListener('touchstart', e => { e.preventDefault(); spinOrbit(); });
+  // ──────────────────────────────────────────────────────────────────────────
 });
