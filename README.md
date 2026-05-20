@@ -1,2 +1,2 @@
-# Profile for me, Advik
+# Profile for me, Cyber
 Profile hoster, fuck guns.lol
