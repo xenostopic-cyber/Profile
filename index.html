@@ -390,19 +390,35 @@
 
         /* ── Social links ───────────────────────────────────────────────── */
         .social-links {
-            display: flex; justify-content: center;
-            gap: 14px; margin-top: 0;
-            pointer-events: auto; opacity: 1 !important;
-        }
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 0;
+    pointer-events: auto;
+    opacity: 1 !important;
+}
 
-        /* ↑ Bumped from 36px → 48px */
-        .social-icon {
-            width: 48px; height: 48px;
-            transition: transform 0.3s ease;
-            filter: drop-shadow(0 0 8px rgba(255,255,255,0.7));
-            pointer-events: auto; opacity: 1 !important;
-        }
-        .social-icon:hover { transform: scale(1.35) rotateY(15deg); }
+/* ↑ Bumped from 36px → 48px */
+.social-icon {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.7));
+    pointer-events: auto;
+    opacity: 1 !important;
+}
+
+/* upscale snapchat gif only */
+a[href*="snapchat"] .social-icon {
+    width: 58px;
+    height: 58px;
+    margin-top: -5px;
+}
+
+.social-icon:hover {
+    transform: scale(1.35) rotateY(15deg);
+}
 
         /* ── Discord Presence ───────────────────────────────────────────── */
         #discord-presence {
