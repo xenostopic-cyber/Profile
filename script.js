@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Visitor Counter ────────────────────────────────────────────────────────
   const COUNTER_NS        = 'xenostopic-xyz';
   const COUNTER_KEY       = 'profile-views';
-  const COUNTER_URL       = `https://api.counterapi.dev/v2/${COUNTER_NS}/${COUNTER_KEY}`;
+  const COUNTER_URL       = `https://api.counterapi.dev/v1/${COUNTER_NS}/${COUNTER_KEY}`;
   const COUNTER_CACHE_KEY = 'xeno_lastCount';
 
   function fetchWithTimeout(url, opts = {}, ms = 6000) {
