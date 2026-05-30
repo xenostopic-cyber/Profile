@@ -31,6 +31,18 @@ class CursorTrailEffect {
     if (!this.container) {
       this.container = document.createElement('div');
       this.container.className = 'cursor-trail';
+      // These inline styles are required: without position:fixed the container
+      // isn't a positioned ancestor, so child left/top values do nothing.
+      Object.assign(this.container.style, {
+        position:      'fixed',
+        top:           '0',
+        left:          '0',
+        width:         '100%',
+        height:        '100%',
+        pointerEvents: 'none',
+        zIndex:        '9999',
+        overflow:      'hidden'
+      });
       document.body.appendChild(this.container);
     }
 
@@ -48,6 +60,14 @@ class CursorTrailEffect {
       dot.style.width  = size + 'px';
       dot.style.height = size + 'px';
       dot.style.opacity = (1 - i / length).toFixed(2);
+      // position:fixed is required — without it left/top are ignored (static default).
+      Object.assign(dot.style, {
+        position:     'fixed',
+        borderRadius: '50%',
+        background:   'var(--primary-color, #00CED1)',
+        transform:    'translate(-50%, -50%)',
+        pointerEvents:'none'
+      });
       this.container.appendChild(dot);
       return { el: dot, x: 0, y: 0 };
     });
@@ -72,6 +92,16 @@ class CursorTrailEffect {
       const s = document.createElement('div');
       s.className = 'cursor-trail-sparkle';
       s.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+      // position:fixed is required so left/top resolve against the viewport
+      // (matching the clientX/clientY values we're using).
+      Object.assign(s.style, {
+        position:     'fixed',
+        color:        'var(--primary-color, #00CED1)',
+        fontSize:     '16px',
+        lineHeight:   '1',
+        pointerEvents:'none',
+        userSelect:   'none'
+      });
       const offsetX = (Math.random() - 0.5) * 24;
       const offsetY = (Math.random() - 0.5) * 24;
       s.style.left = (this.mouseX + offsetX) + 'px';
@@ -98,6 +128,14 @@ class CursorTrailEffect {
       dot.style.width   = size + 'px';
       dot.style.height  = size + 'px';
       dot.style.opacity = (1 - i / length).toFixed(2);
+      Object.assign(dot.style, {
+        position:     'fixed',
+        borderRadius: '50%',
+        background:   'var(--primary-color, #00CED1)',
+        transform:    'translate(-50%, -50%)',
+        boxShadow:    '0 0 6px 2px rgba(0,206,209,0.45)',
+        pointerEvents:'none'
+      });
       this.container.appendChild(dot);
       return { el: dot, x: 0, y: 0 };
     });
@@ -270,23 +308,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function initializeVisitorCounter() {
     const cached = localStorage.getItem(COUNTER_CACHE_KEY);
-    // Show cached count right away — never a blank/dash while loading
+    // Show cached count immediately — never a blank while loading
     if (cached) visitorCount.textContent = Number(cached).toLocaleString();
 
-    // Attempt 1: counterapi.dev
+    // counterapi.dev auto-creates the key on the first /up hit — no PUT needed.
+    // (The old PUT 404-handler was firing a non-simple CORS request that triggered
+    // a preflight OPTIONS; counterapi.dev doesn't support PUT so the preflight
+    // failed, throwing before we ever read the count — and silently breaking
+    // the hits.seeyoufarm.com fallback, which has no CORS headers of its own.)
     try {
-      let res = await fetchWithTimeout(`${COUNTER_URL}/up`);
-      if (res.status === 404) {
-        await fetchWithTimeout(COUNTER_URL, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ value: 0 })
-        });
-        res = await fetchWithTimeout(`${COUNTER_URL}/up`);
-      }
+      const res = await fetchWithTimeout(`${COUNTER_URL}/up`);
       if (res.ok) {
         const data  = await res.json();
-        const count = data.count ?? data.value ?? data.hits ?? null;
+        // Some API versions nest the count; cover the common field names.
+        const count = data.count ?? data.value ?? data.hits ?? data.data?.count ?? null;
         if (count !== null) {
           visitorCount.textContent = Number(count).toLocaleString();
           localStorage.setItem(COUNTER_CACHE_KEY, count);
@@ -294,31 +329,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     } catch (e) {
-      console.warn('counterapi.dev failed, trying fallback…', e);
+      console.warn('counterapi.dev failed:', e);
     }
 
-    // Attempt 2: hits.seeyoufarm.com
-    try {
-      const canonical = encodeURIComponent('https://xenostopic.github.io');
-      const badgeUrl  = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${canonical}`;
-      const res       = await fetchWithTimeout(badgeUrl);
-      if (res.ok) {
-        const svg  = await res.text();
-        const nums = [...svg.matchAll(/>(\d[\d,]*)</g)]
-          .map(m => parseInt(m[1].replace(/,/g, ''), 10))
-          .filter(n => !isNaN(n));
-        if (nums.length) {
-          const count = Math.max(...nums);
-          visitorCount.textContent = count.toLocaleString();
-          localStorage.setItem(COUNTER_CACHE_KEY, count);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('hits.seeyoufarm.com fallback failed:', e);
-    }
-
-    // Both failed — keep cached count or show 0 (never a dash)
+    // API failed — keep the cached value or fall back to 0 on a brand-new visit.
     if (!cached) visitorCount.textContent = '0';
   }
 
