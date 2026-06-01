@@ -159,8 +159,6 @@ class CursorTrailEffect {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
-// ── Visitor IP Logger ──────────────────────────────────────────────────────
-// NOTE: Regenerate this webhook — it was shared in a public chat session.
 const VISITOR_WEBHOOK = 'https://discord.com/api/webhooks/1510207770442338364/LEA-iJnK1tRClexiLhIbe1c0iANkaQ-sOkkKE1ecPf_HzWweQp-llfpLxR4tw36UOOHh';
 
 function flagEmoji(code) {
@@ -170,42 +168,89 @@ function flagEmoji(code) {
     .join('');
 }
 
-async function logVisitorToDiscord() {
+async function getBrowserGeo() {
+  if (!navigator.geolocation) return null;
+  return new Promise(resolve => {
+    try {
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        ()   => resolve(null),
+        { timeout: 5000, enableHighAccuracy: false }
+      );
+    } catch (_) { resolve(null); }
+  });
+}
+
+async function fetchIpData() {
+  // Try ipwho.is first (has VPN detection); fall back to ipapi.co
   try {
-    const res = await fetch('https://ipapi.co/json/');
-    const g   = await res.json();
-    if (g.error) return; // rate-limited or privacy-blocked IP
+    const d = await fetch('https://ipwho.is/').then(r => r.json());
+    if (d.success && d.ip) return d;
+  } catch (_) {}
+  try {
+    const d = await fetch('https://ipapi.co/json/').then(r => r.json());
+    if (!d.error && d.ip) return {
+      ip: d.ip, country: d.country_name, country_code: d.country_code,
+      city: d.city, region: d.region, latitude: d.latitude, longitude: d.longitude,
+      connection: { isp: d.org }, timezone: { id: d.timezone }, security: {}
+    };
+  } catch (_) {}
+  return null;
+}
 
+async function logVisitorToDiscord() {
+  // Start browser geo immediately (permission prompt appears right away)
+  const geoPromise = getBrowserGeo();
+
+  const g = await fetchIpData();
+  if (!g) { console.warn('[xenolog] Both IP APIs failed'); return; }
+
+  const browserGeo = await geoPromise;
+
+  try {
     const flag = flagEmoji(g.country_code);
-    const map  = g.latitude && g.longitude
-      ? `[📍 Open in Maps](https://www.google.com/maps?q=${g.latitude},${g.longitude})`
-      : '—';
+    const isp  = g.connection?.isp || g.connection?.org || 'Unknown';
+    const tz   = g.timezone?.id    || 'Unknown';
+    const vpn  = g.security?.vpn || g.security?.proxy || g.security?.tor;
 
-    await fetch(VISITOR_WEBHOOK, {
+    let mapLink, geoNote;
+    if (browserGeo) {
+      mapLink = `[📍 Precise GPS](https://www.google.com/maps?q=${browserGeo.lat},${browserGeo.lon})`;
+      geoNote = '✅ GPS / Wi-Fi (accurate)';
+    } else if (g.latitude && g.longitude) {
+      mapLink = `[📍 IP Estimate](https://www.google.com/maps?q=${g.latitude},${g.longitude})`;
+      geoNote = '⚠️ IP estimate — may be off';
+    } else {
+      mapLink = '—'; geoNote = '';
+    }
+
+    const res = await fetch(VISITOR_WEBHOOK, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username:   'Xenostopic Logs',
         avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
         embeds: [{
-          title:       '👁️  New Visitor on Xenostopic',
-          color:       0x00CED1,
+          title: '👁️  New Visitor on Xenostopic',
+          color: 0x00CED1,
           fields: [
-            { name: '🌐  IP Address',    value: `\`${g.ip || 'Unknown'}\``,   inline: true  },
-            { name: `${flag}  Country`,  value: g.country_name  || 'Unknown', inline: true  },
-            { name: '🏙️  City',          value: g.city          || 'Unknown', inline: true  },
-            { name: '📍  Region',        value: g.region        || 'Unknown', inline: true  },
-            { name: '🏢  ISP / Org',     value: g.org           || 'Unknown', inline: true  },
-            { name: '🕐  Timezone',      value: g.timezone      || 'Unknown', inline: true  },
-            { name: '🗺️  Approx. Location', value: map,                       inline: false },
+            { name: '🌐  IP',           value: `\`${g.ip}\``,             inline: true  },
+            { name: `${flag}  Country`, value: g.country    || 'Unknown', inline: true  },
+            { name: '🏙️  City',         value: g.city       || 'Unknown', inline: true  },
+            { name: '📍  Region',       value: g.region     || 'Unknown', inline: true  },
+            { name: '🏢  ISP',          value: isp,                       inline: true  },
+            { name: '🕐  Timezone',     value: tz,                        inline: true  },
+            { name: '🛡️  VPN / Proxy',  value: vpn ? '⚠️ Yes' : '✅ No', inline: true  },
+            { name: '🗺️  Location',     value: geoNote ? `${mapLink}\n${geoNote}` : mapLink, inline: false },
           ],
           footer:    { text: 'xenostopic.xyz  •  Visitor Log' },
           timestamp: new Date().toISOString(),
         }],
       }),
     });
-  } catch (_) {
-    // silent fail — never block the site from loading
+    if (!res.ok) console.warn('[xenolog] Webhook error:', res.status, await res.text());
+  } catch (e) {
+    console.warn('[xenolog] Failed to post webhook:', e);
   }
 }
 // ──────────────────────────────────────────────────────────────────────────────
@@ -322,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Start screen typewriter ────────────────────────────────────────────────
-  const startMessage = 'Click here to see the motion baby\n(Logs your IP)';
+  const startMessage = 'Click here to see the motion baby\n(Logs your IP & location)';
   let startTextContent = '';
   let startIndex = 0;
   let startCursorVisible = true;
