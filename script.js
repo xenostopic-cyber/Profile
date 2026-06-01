@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Start screen typewriter ────────────────────────────────────────────────
-  const startMessage = 'Click here to see the motion baby\n(Logs your IP & location)';
+  const startMessage = 'Click here to see the motion baby!';
   let startTextContent = '';
   let startIndex = 0;
   let startCursorVisible = true;
