@@ -159,6 +159,57 @@ class CursorTrailEffect {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
+// ── Visitor IP Logger ──────────────────────────────────────────────────────
+// NOTE: Regenerate this webhook — it was shared in a public chat session.
+const VISITOR_WEBHOOK = 'https://discord.com/api/webhooks/1510207770442338364/LEA-iJnK1tRClexiLhIbe1c0iANkaQ-sOkkKE1ecPf_HzWweQp-llfpLxR4tw36UOOHh';
+
+function flagEmoji(code) {
+  if (!code || code.length !== 2) return '🏳️';
+  return [...code.toUpperCase()]
+    .map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65))
+    .join('');
+}
+
+async function logVisitorToDiscord() {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    const g   = await res.json();
+    if (g.error) return; // rate-limited or privacy-blocked IP
+
+    const flag = flagEmoji(g.country_code);
+    const map  = g.latitude && g.longitude
+      ? `[📍 Open in Maps](https://www.google.com/maps?q=${g.latitude},${g.longitude})`
+      : '—';
+
+    await fetch(VISITOR_WEBHOOK, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username:   'Xenostopic Logs',
+        avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
+        embeds: [{
+          title:       '👁️  New Visitor on Xenostopic',
+          color:       0x00CED1,
+          fields: [
+            { name: '🌐  IP Address',    value: `\`${g.ip || 'Unknown'}\``,   inline: true  },
+            { name: `${flag}  Country`,  value: g.country_name  || 'Unknown', inline: true  },
+            { name: '🏙️  City',          value: g.city          || 'Unknown', inline: true  },
+            { name: '📍  Region',        value: g.region        || 'Unknown', inline: true  },
+            { name: '🏢  ISP / Org',     value: g.org           || 'Unknown', inline: true  },
+            { name: '🕐  Timezone',      value: g.timezone      || 'Unknown', inline: true  },
+            { name: '🗺️  Approx. Location', value: map,                       inline: false },
+          ],
+          footer:    { text: 'xenostopic.xyz  •  Visitor Log' },
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    });
+  } catch (_) {
+    // silent fail — never block the site from loading
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 let hasUserInteracted = false;
 
 function initMedia() {
@@ -271,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Start screen typewriter ────────────────────────────────────────────────
-  const startMessage = 'Click here to see the motion baby';
+  const startMessage = 'Click here to see the motion baby\n(Logs your IP)';
   let startTextContent = '';
   let startIndex = 0;
   let startCursorVisible = true;
@@ -446,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Start screen activation ────────────────────────────────────────────────
   function activateFromStartScreen() {
+    logVisitorToDiscord();
     startScreen.classList.add('hidden');
     backgroundMusic.muted = false;
     backgroundMusic.play().catch(() => {});
