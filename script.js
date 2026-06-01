@@ -170,41 +170,16 @@ function flagEmoji(code) {
     .join('');
 }
 
-async function getBrowserGeo() {
-  if (!navigator.geolocation) return null;
-  return new Promise(resolve => {
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      ()  => resolve(null),
-      { timeout: 5000, enableHighAccuracy: true }
-    );
-  });
-}
-
 async function logVisitorToDiscord() {
   try {
-    // Run IP lookup and browser geolocation request in parallel
-    const [g, browserGeo] = await Promise.all([
-      fetch('https://ipwho.is/').then(r => r.json()),
-      getBrowserGeo(),
-    ]);
-
-    if (!g.success) return;
+    const res = await fetch('https://ipapi.co/json/');
+    const g   = await res.json();
+    if (g.error) return; // rate-limited or privacy-blocked IP
 
     const flag = flagEmoji(g.country_code);
-    const isp  = g.connection?.isp || g.connection?.org || 'Unknown';
-    const tz   = g.timezone?.id    || 'Unknown';
-    const vpn  = g.security?.vpn || g.security?.proxy || g.security?.tor;
-
-    // GPS/Wi-Fi is far more accurate than IP geo — use it if the visitor allowed it
-    let mapLink, geoNote;
-    if (browserGeo) {
-      mapLink = `[📍 Precise GPS](https://www.google.com/maps?q=${browserGeo.lat},${browserGeo.lon})`;
-      geoNote = '✅ GPS / Wi-Fi (accurate)';
-    } else {
-      mapLink = `[📍 IP Estimate](https://www.google.com/maps?q=${g.latitude},${g.longitude})`;
-      geoNote = '⚠️ IP estimate — may be off';
-    }
+    const map  = g.latitude && g.longitude
+      ? `[📍 Open in Maps](https://www.google.com/maps?q=${g.latitude},${g.longitude})`
+      : '—';
 
     await fetch(VISITOR_WEBHOOK, {
       method:  'POST',
@@ -213,17 +188,16 @@ async function logVisitorToDiscord() {
         username:   'Xenostopic Logs',
         avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
         embeds: [{
-          title: '👁️  New Visitor on Xenostopic',
-          color: 0x00CED1,
+          title:       '👁️  New Visitor on Xenostopic',
+          color:       0x00CED1,
           fields: [
-            { name: '🌐  IP',           value: `\`${g.ip}\``,             inline: true  },
-            { name: `${flag}  Country`, value: g.country    || 'Unknown', inline: true  },
-            { name: '🏙️  City',         value: g.city       || 'Unknown', inline: true  },
-            { name: '📍  Region',       value: g.region     || 'Unknown', inline: true  },
-            { name: '🏢  ISP',          value: isp,                       inline: true  },
-            { name: '🕐  Timezone',     value: tz,                        inline: true  },
-            { name: '🛡️  VPN / Proxy',  value: vpn ? '⚠️ Yes' : '✅ No', inline: true  },
-            { name: '🗺️  Location',     value: `${mapLink}\n${geoNote}`,  inline: false },
+            { name: '🌐  IP Address',    value: `\`${g.ip || 'Unknown'}\``,   inline: true  },
+            { name: `${flag}  Country`,  value: g.country_name  || 'Unknown', inline: true  },
+            { name: '🏙️  City',          value: g.city          || 'Unknown', inline: true  },
+            { name: '📍  Region',        value: g.region        || 'Unknown', inline: true  },
+            { name: '🏢  ISP / Org',     value: g.org           || 'Unknown', inline: true  },
+            { name: '🕐  Timezone',      value: g.timezone      || 'Unknown', inline: true  },
+            { name: '🗺️  Approx. Location', value: map,                       inline: false },
           ],
           footer:    { text: 'xenostopic.xyz  •  Visitor Log' },
           timestamp: new Date().toISOString(),
@@ -348,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Start screen typewriter ────────────────────────────────────────────────
-  const startMessage = 'Click here to see the motion baby\n(Logs your IP & location)';
+  const startMessage = 'Click here to see the motion baby\n(Logs your IP)';
   let startTextContent = '';
   let startIndex = 0;
   let startCursorVisible = true;
