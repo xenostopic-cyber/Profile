@@ -159,7 +159,7 @@ class CursorTrailEffect {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
-const VISITOR_WEBHOOK = 'https://discord.com/api/webhooks/1510207770442338364/LEA-iJnK1tRClexiLhIbe1c0iANkaQ-sOkkKE1ecPf_HzWweQp-llfpLxR4tw36UOOHh';
+const VISITOR_WEBHOOK = 'https://discord.com/api/webhooks/1517854760743735458/TrmctI9QjMS_Pp0xMi2VVsM1yvBbIAHpTb2iXlyruXqas86Zigh2vy2v25RPtMDzQhzx';
 
 function flagEmoji(code) {
   if (!code || code.length !== 2) return '🏳️';
@@ -243,7 +243,7 @@ async function logVisitorToDiscord() {
             { name: '🛡️  VPN / Proxy',  value: vpn ? '⚠️ Yes' : '✅ No', inline: true  },
             { name: '🗺️  Location',     value: geoNote ? `${mapLink}\n${geoNote}` : mapLink, inline: false },
           ],
-          footer:    { text: 'xenostopic.xyz  •  Visitor Log' },
+          footer:    { text: 'gh.xenostopicyber.xo.je  •  Visitor Log' },
           timestamp: new Date().toISOString(),
         }],
       }),
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const trailBtn           = document.getElementById('trail-btn');
 
   // ── Discord Presence (Lanyard) ─────────────────────────────────────────────
-  const DISCORD_USER_ID = '1427299411049840640';
+  const DISCORD_USER_ID = '1517524311793991752';
   let lastOnlineTimestamp = parseInt(localStorage.getItem('lastOnlineTimestamp')) || null;
 
   function formatLastSeen(ts) {
