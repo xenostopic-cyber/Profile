@@ -293,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSeekBack  = document.getElementById('btn-seek-back');
   const btnSeekFwd   = document.getElementById('btn-seek-fwd');
   const btnSkip      = document.getElementById('btn-skip');
+  const btnLoop      = document.getElementById('btn-loop');
   const seekBar        = document.getElementById('seek-bar');
   const currentTimeEl  = document.getElementById('current-time');
   const durationTimeEl = document.getElementById('duration-time');
@@ -558,12 +559,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─────────────────────────────────────────────────────────────────────────
   const playlists = {
     home: [
-      { src: 'assets/background_music.mp3', name: 'Random Song'     },  // ← edit name
-      { src: 'assets/third_song.mp3',       name: 'Billie Jeans'     },  // ← edit name
+      { src: 'assets/third_song.mp3',       name: 'Billie Jeans'   },  // ← cover song (plays first)
+      { src: 'assets/background_music.mp3', name: 'Random Song'    },
     ],
     anime: [
-      { src: 'assets/anime_music.mp3',      name: 'Random Song 2' },  // ← edit name
-      { src: 'assets/fourth_song.mp3',      name: 'Subway Sexist V2'     },  // ← edit name
+      { src: 'assets/fourth_song.mp3',      name: 'Subway Sexist V2' },  // ← cover song (plays first)
+      { src: 'assets/anime_music.mp3',      name: 'Random Song 2'  },
     ]
   };
   // ─────────────────────────────────────────────────────────────────────────
@@ -572,6 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentTrackIdx = 0;
   let isPlaying       = false;
   let isMuted         = false;
+  let loopEnabled     = true;   // loop the current song by default
 
   mainAudio.volume = parseFloat(volumeSlider.value);
 
@@ -603,10 +605,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnPlayPause) btnPlayPause.textContent = '\u25b6';
   }
 
-  // Auto-advance when a track finishes
+  // Auto-advance or loop when a track finishes
   mainAudio.addEventListener('ended', () => {
-    loadTrack(currentTrackIdx + 1);
-    playAudio();
+    if (loopEnabled) {
+      mainAudio.currentTime = 0;
+      playAudio();
+    } else {
+      loadTrack(currentTrackIdx + 1);
+      playAudio();
+    }
   });
   // ────────────────────────────────────────────────────────────────────────
 
@@ -654,6 +661,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const doSkip = () => { loadTrack(currentTrackIdx + 1); if (isPlaying) playAudio(); };
     btnSkip.addEventListener('click',      doSkip);
     btnSkip.addEventListener('touchstart', e => { e.preventDefault(); doSkip(); });
+  }
+
+  // ── Loop toggle button ────────────────────────────────────────────────────
+  const btnLoop = document.getElementById('btn-loop');
+  if (btnLoop) {
+    const updateLoopBtn = () => {
+      btnLoop.style.opacity = loopEnabled ? '1' : '0.35';
+      btnLoop.style.color   = loopEnabled ? 'var(--primary-color, #00CED1)' : 'white';
+      btnLoop.title = loopEnabled ? 'Loop: On (click to turn off)' : 'Loop: Off (click to turn on)';
+    };
+    updateLoopBtn();
+
+    const toggleLoop = () => {
+      loopEnabled = !loopEnabled;
+      updateLoopBtn();
+    };
+    btnLoop.addEventListener('click',      toggleLoop);
+    btnLoop.addEventListener('touchstart', e => { e.preventDefault(); toggleLoop(); });
   }
   // ────────────────────────────────────────────────────────────────────────
 
