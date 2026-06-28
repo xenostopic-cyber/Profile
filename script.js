@@ -258,10 +258,10 @@ async function logVisitorToDiscord() {
 let hasUserInteracted = false;
 
 function initMedia() {
-  const backgroundMusic = document.getElementById('background-music');
+  const mainAudio = document.getElementById('main-audio');
   const backgroundVideo = document.getElementById('background');
-  if (!backgroundMusic || !backgroundVideo) return;
-  backgroundMusic.volume = 0.3;
+  if (!mainAudio || !backgroundVideo) return;
+  mainAudio.volume = 0.3;
   backgroundVideo.muted  = true;
   backgroundVideo.play().catch(() => {});
 }
@@ -272,8 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileName        = document.getElementById('profile-name');
   const profileBio         = document.getElementById('profile-bio');
   const visitorCount       = document.getElementById('visitor-count');
-  const backgroundMusic    = document.getElementById('background-music');
-  const animeMusic         = document.getElementById('anime-music');
+  const mainAudio          = document.getElementById('main-audio');
   const homeButton         = document.getElementById('home-theme');
   const animeButton        = document.getElementById('anime-theme');
   const volumeIcon         = document.getElementById('volume-icon');
@@ -286,8 +285,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const presenceText       = document.getElementById('presence-text');
   const profilePicture     = document.querySelector('.profile-picture');
   const profileContainer   = document.querySelector('.profile-container');
-  const socialIcons        = document.querySelectorAll('.social-icon');
   const trailBtn           = document.getElementById('trail-btn');
+
+  // ── Music-player control refs ────────────────────────────────────────────
+  const songTitleEl  = document.getElementById('song-title');
+  const btnPlayPause = document.getElementById('btn-play-pause');
+  const btnSeekBack  = document.getElementById('btn-seek-back');
+  const btnSeekFwd   = document.getElementById('btn-seek-fwd');
+  const btnSkip      = document.getElementById('btn-skip');
+  const seekBar        = document.getElementById('seek-bar');
+  const currentTimeEl  = document.getElementById('current-time');
+  const durationTimeEl = document.getElementById('duration-time');
 
   // ── Discord Presence (Lanyard) ─────────────────────────────────────────────
   const DISCORD_USER_ID = '1517524311793991752';
@@ -540,12 +548,161 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // ──────────────────────────────────────────────────────────────────────────
 
+  // ── Playlist system ──────────────────────────────────────────────────────
+  // ✏️  CUSTOMISE SONG NAMES HERE
+  //     Change the `name` value next to any track to whatever you want
+  //     displayed in the player bar.  Change `src` if you rename a file.
+  //
+  //   home  → page 1 (background.mp4 theme)
+  //   anime → page 2 (anime_background.mp4 theme)
+  // ─────────────────────────────────────────────────────────────────────────
+  const playlists = {
+    home: [
+      { src: 'assets/background_music.mp3', name: 'Random Song'     },  // ← edit name
+      { src: 'assets/third_song.mp3',       name: 'Billie Jeans'     },  // ← edit name
+    ],
+    anime: [
+      { src: 'assets/anime_music.mp3',      name: 'Random Song 2' },  // ← edit name
+      { src: 'assets/fourth_song.mp3',      name: 'Subway Sexist V2'     },  // ← edit name
+    ]
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
+  let currentThemeKey = 'home';
+  let currentTrackIdx = 0;
+  let isPlaying       = false;
+  let isMuted         = false;
+
+  mainAudio.volume = parseFloat(volumeSlider.value);
+
+  function loadTrack(idx) {
+    const list      = playlists[currentThemeKey];
+    currentTrackIdx = ((idx % list.length) + list.length) % list.length;
+    const track     = list[currentTrackIdx];
+    mainAudio.src   = track.src;
+    mainAudio.load();
+    if (songTitleEl) songTitleEl.textContent = '\u266a ' + track.name;
+    // Reset seek bar for the new track
+    if (seekBar)        { seekBar.value = 0; seekBar.style.setProperty('--seek-pct', '0%'); }
+    if (currentTimeEl)  currentTimeEl.textContent  = '0:00';
+    if (durationTimeEl) durationTimeEl.textContent = '0:00';
+  }
+
+  function playAudio() {
+    mainAudio.muted  = isMuted;
+    mainAudio.volume = parseFloat(volumeSlider.value);
+    mainAudio.play().then(() => {
+      isPlaying = true;
+      if (btnPlayPause) btnPlayPause.textContent = '\u23f8';
+    }).catch(() => {});
+  }
+
+  function pauseAudio() {
+    mainAudio.pause();
+    isPlaying = false;
+    if (btnPlayPause) btnPlayPause.textContent = '\u25b6';
+  }
+
+  // Auto-advance when a track finishes
+  mainAudio.addEventListener('ended', () => {
+    loadTrack(currentTrackIdx + 1);
+    playAudio();
+  });
+  // ────────────────────────────────────────────────────────────────────────
+
+  // ── Audio controls (volume icon + slider) ────────────────────────────────
+  const muteIcon   = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>`;
+  const unmuteIcon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>`;
+
+  const toggleMute = () => {
+    isMuted              = !isMuted;
+    mainAudio.muted      = isMuted;
+    volumeIcon.innerHTML = isMuted ? muteIcon : unmuteIcon;
+  };
+
+  volumeIcon.addEventListener('click',      toggleMute);
+  volumeIcon.addEventListener('touchstart', e => { e.preventDefault(); toggleMute(); });
+
+  volumeSlider.addEventListener('input', () => {
+    mainAudio.volume     = parseFloat(volumeSlider.value);
+    isMuted              = false;
+    mainAudio.muted      = false;
+    volumeIcon.innerHTML = unmuteIcon;
+  });
+  // ────────────────────────────────────────────────────────────────────────
+
+  // ── Player buttons (-5 / play-pause / +5 / skip) ─────────────────────────
+  if (btnPlayPause) {
+    const togglePlay = () => isPlaying ? pauseAudio() : playAudio();
+    btnPlayPause.addEventListener('click',      togglePlay);
+    btnPlayPause.addEventListener('touchstart', e => { e.preventDefault(); togglePlay(); });
+  }
+  if (btnSeekBack) {
+    const doSeekBack = () => { mainAudio.currentTime = Math.max(0, mainAudio.currentTime - 5); };
+    btnSeekBack.addEventListener('click',      doSeekBack);
+    btnSeekBack.addEventListener('touchstart', e => { e.preventDefault(); doSeekBack(); });
+  }
+  if (btnSeekFwd) {
+    const doSeekFwd = () => {
+      const cap = isFinite(mainAudio.duration) ? mainAudio.duration : mainAudio.currentTime + 5;
+      mainAudio.currentTime = Math.min(cap, mainAudio.currentTime + 5);
+    };
+    btnSeekFwd.addEventListener('click',      doSeekFwd);
+    btnSeekFwd.addEventListener('touchstart', e => { e.preventDefault(); doSeekFwd(); });
+  }
+  if (btnSkip) {
+    const doSkip = () => { loadTrack(currentTrackIdx + 1); if (isPlaying) playAudio(); };
+    btnSkip.addEventListener('click',      doSkip);
+    btnSkip.addEventListener('touchstart', e => { e.preventDefault(); doSkip(); });
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
+  // ── Seek bar ─────────────────────────────────────────────────────────────
+  function formatTime(s) {
+    if (!isFinite(s) || isNaN(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+  }
+
+  // Show total duration as soon as the browser has the metadata
+  mainAudio.addEventListener('loadedmetadata', () => {
+    if (durationTimeEl) durationTimeEl.textContent = formatTime(mainAudio.duration);
+  });
+
+  // Keep bar + current-time in sync while playing
+  mainAudio.addEventListener('timeupdate', () => {
+    if (!mainAudio.duration || !isFinite(mainAudio.duration)) return;
+    const pct = (mainAudio.currentTime / mainAudio.duration) * 100;
+    if (seekBar) {
+      seekBar.value = pct;
+      seekBar.style.setProperty('--seek-pct', pct + '%');
+    }
+    if (currentTimeEl) currentTimeEl.textContent = formatTime(mainAudio.currentTime);
+  });
+
+  if (seekBar) {
+    // Scrub on drag
+    seekBar.addEventListener('input', () => {
+      const pct = parseFloat(seekBar.value);
+      seekBar.style.setProperty('--seek-pct', pct + '%');
+      if (isFinite(mainAudio.duration)) {
+        mainAudio.currentTime = (pct / 100) * mainAudio.duration;
+      }
+    });
+    // Prevent seek-bar touches from triggering the card tilt
+    seekBar.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    seekBar.addEventListener('touchmove',  e => e.stopPropagation(), { passive: true });
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   // ── Start screen activation ────────────────────────────────────────────────
   function activateFromStartScreen() {
     logVisitorToDiscord();
     startScreen.classList.add('hidden');
-    backgroundMusic.muted = false;
-    backgroundMusic.play().catch(() => {});
+
+    // Load first track of home playlist and start playing
+    loadTrack(0);
+    playAudio();
 
     // Ensure profile block is visible and properly centred before animating
     profileBlock.style.opacity  = '0';
@@ -579,30 +736,6 @@ document.addEventListener('DOMContentLoaded', () => {
   startScreen.addEventListener('touchstart', e => { e.preventDefault(); activateFromStartScreen(); });
   // ──────────────────────────────────────────────────────────────────────────
 
-  // ── Audio controls ─────────────────────────────────────────────────────────
-  let currentAudio = backgroundMusic;
-  let isMuted      = false;
-
-  const muteIcon   = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>`;
-  const unmuteIcon = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>`;
-
-  const toggleMute = () => {
-    isMuted = !isMuted;
-    currentAudio.muted  = isMuted;
-    volumeIcon.innerHTML = isMuted ? muteIcon : unmuteIcon;
-  };
-
-  volumeIcon.addEventListener('click',      toggleMute);
-  volumeIcon.addEventListener('touchstart', e => { e.preventDefault(); toggleMute(); });
-
-  volumeSlider.addEventListener('input', () => {
-    currentAudio.volume  = volumeSlider.value;
-    isMuted              = false;
-    currentAudio.muted   = false;
-    volumeIcon.innerHTML = unmuteIcon;
-  });
-  // ──────────────────────────────────────────────────────────────────────────
-
   // ── Transparency slider ────────────────────────────────────────────────────
   transparencySlider.addEventListener('input', () => {
     const opacity = transparencySlider.value;
@@ -613,7 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Theme switcher ─────────────────────────────────────────────────────────
-  function switchTheme(videoSrc, audio, themeClass) {
+  function switchTheme(videoSrc, themeKey, themeClass) {
     const colorMap = {
       'home-theme':  '#00CED1',
       'anime-theme': '#DC2626',
@@ -627,11 +760,12 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundVideo.src = videoSrc;
         backgroundVideo.load();
 
-        if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
-        currentAudio        = audio;
-        currentAudio.volume = volumeSlider.value;
-        currentAudio.muted  = isMuted;
-        currentAudio.play().catch(() => {});
+        // Switch playlist and restart from track 0
+        currentThemeKey = themeKey;
+        pauseAudio();
+        mainAudio.currentTime = 0;
+        loadTrack(0);
+        playAudio();
 
         document.body.classList.remove('home-theme', 'anime-theme');
         document.body.classList.add(themeClass);
@@ -654,11 +788,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  homeButton.addEventListener('click',      () => switchTheme('assets/background.mp4', backgroundMusic, 'home-theme'));
-  homeButton.addEventListener('touchstart', e => { e.preventDefault(); switchTheme('assets/background.mp4', backgroundMusic, 'home-theme'); });
-  animeButton.addEventListener('click',      () => switchTheme('assets/anime_background.mp4', animeMusic, 'anime-theme'));
-  animeButton.addEventListener('touchstart', e => { e.preventDefault(); switchTheme('assets/anime_background.mp4', animeMusic, 'anime-theme'); });
-  // ──────────────────────────────────────────────────────────────────────────
+  homeButton.addEventListener('click',      () => switchTheme('assets/background.mp4', 'home', 'home-theme'));
+  homeButton.addEventListener('touchstart', e => { e.preventDefault(); switchTheme('assets/background.mp4', 'home', 'home-theme'); });
+  animeButton.addEventListener('click',      () => switchTheme('assets/anime_background.mp4', 'anime', 'anime-theme'));
+  animeButton.addEventListener('touchstart', e => { e.preventDefault(); switchTheme('assets/anime_background.mp4', 'anime', 'anime-theme'); });
+  // ────────────────────────────────────────────────────────────────────────
 
   // ── 3-D card tilt ─────────────────────────────────────────────────────────
   function handleTilt(e, element) {
@@ -678,7 +812,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetTilt = el => gsap.to(el, { rotationX: 0, rotationY: 0, duration: 0.5, ease: 'power2.out' });
 
   profileBlock.addEventListener('mousemove',  e => handleTilt(e, profileBlock));
-  profileBlock.addEventListener('touchmove',  e => { e.preventDefault(); handleTilt(e, profileBlock); });
+  profileBlock.addEventListener('touchmove',  e => {
+    if (e.target.id === 'seek-bar') return;   // don't tilt while scrubbing
+    e.preventDefault();
+    handleTilt(e, profileBlock);
+  });
   profileBlock.addEventListener('mouseleave', () => resetTilt(profileBlock));
   profileBlock.addEventListener('touchend',   () => resetTilt(profileBlock));
   // ──────────────────────────────────────────────────────────────────────────
