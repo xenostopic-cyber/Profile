@@ -664,7 +664,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Loop toggle button ────────────────────────────────────────────────────
-  const btnLoop = document.getElementById('btn-loop');
   if (btnLoop) {
     const updateLoopBtn = () => {
       btnLoop.style.opacity = loopEnabled ? '1' : '0.35';
