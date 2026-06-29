@@ -229,7 +229,7 @@ async function logVisitorToDiscord() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username:   'Xenostopic Logs',
-        avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
+        avatar_url: 'https://gg.cybernova.site.je/assets/profile.webp',
         embeds: [{
           title: '👁️  New Visitor on Xenostopic',
           color: 0x00CED1,
@@ -243,7 +243,7 @@ async function logVisitorToDiscord() {
             { name: '🛡️  VPN / Proxy',  value: vpn ? '⚠️ Yes' : '✅ No', inline: true  },
             { name: '🗺️  Location',     value: geoNote ? `${mapLink}\n${geoNote}` : mapLink, inline: false },
           ],
-          footer:    { text: 'gh.xenostopicyber.xo.je  •  Visitor Log' },
+          footer:    { text: 'gg.cybernova.site.je  •  Visitor Log' },
           timestamp: new Date().toISOString(),
         }],
       }),
@@ -1157,7 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username:   'Xenostopic Contact',
-          avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
+          avatar_url: 'https://gg.cybernova.site.je/assets/profile.webp',
           embeds: [{
             title:       '📬  New Contact Message',
             color:       0x00CED1,
