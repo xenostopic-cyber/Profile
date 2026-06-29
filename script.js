@@ -1014,7 +1014,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.remove('home-theme', 'anime-theme');
         document.body.classList.add(themeClass);
 
-        gsap.to(profileBlock, { x: 0, opacity: 1, duration: 0.5, ease: 'power2.out', xPercent: -50, yPercent: -50 });
+        // Only restore profile block if we're actually on the profile page.
+        // Without this guard it would bleed through onto the github/contact pages.
+        if (currentPage === 0) {
+          gsap.to(profileBlock, { x: 0, opacity: 1, duration: 0.5, ease: 'power2.out', xPercent: -50, yPercent: -50 });
+        }
 
         backgroundVideo.addEventListener('canplay', function onCanPlay() {
           backgroundVideo.removeEventListener('canplay', onCanPlay);
@@ -1153,7 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username:   'Xenostopic Contact',
-          avatar_url: 'https://gh.xenostopicyber.xo.je/assets/profile.webp',
+          avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
           embeds: [{
             title:       '📬  New Contact Message',
             color:       0x00CED1,
@@ -1163,7 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
               { name: '🎮  Submitted As', value: discordRaw,               inline: true  },
               { name: '🕐  Sent At',      value: new Date().toUTCString(),  inline: false },
             ],
-            footer:    { text: 'gh.xenostopicyber.xo.je  •  Contact Form' },
+            footer:    { text: 'xenostopic.xyz  •  Contact Form' },
             timestamp: new Date().toISOString(),
           }],
         }),
