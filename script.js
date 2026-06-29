@@ -1141,10 +1141,6 @@ document.addEventListener('DOMContentLoaded', () => {
       contactMessageInput?.focus();
       return;
     }
-    if (VISITOR_WEBHOOK === '') {
-      setContactStatus('Webhook not configured yet.', 'error');
-      return;
-    }
 
     if (contactSendBtn) contactSendBtn.disabled = true;
     setContactStatus('Sending…', '');
@@ -1152,33 +1148,27 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const user = await resolveDiscordUser(discordRaw);
 
-      const embed = {
-        title: '📬  New Contact Message',
-        color: 0x00CED1,
-        author: { name: user.name, icon_url: user.avatar },
-        fields: [
-          { name: '🎮  Submitted As', value: discordRaw,              inline: true  },
-          { name: '🕐  Sent At',      value: new Date().toUTCString(), inline: false },
-        ],
-        footer:    { text: 'xenostopic.xyz  •  Contact Form' },
-        timestamp: new Date().toISOString(),
-      };
+      const res = await fetch(VISITOR_WEBHOOK, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username:   'Xenostopic Contact',
+          avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
+          embeds: [{
+            title:       '📬  New Contact Message',
+            color:       0x00CED1,
+            description: msgText,
+            author:      { name: user.name, icon_url: user.avatar },
+            fields: [
+              { name: '🎮  Submitted As', value: discordRaw,               inline: true  },
+              { name: '🕐  Sent At',      value: new Date().toUTCString(),  inline: false },
+            ],
+            footer:    { text: 'xenostopic.xyz  •  Contact Form' },
+            timestamp: new Date().toISOString(),
+          }],
+        }),
+      });
 
-      // Send as multipart so the message arrives as a .txt attachment
-      const safeName = discordRaw.replace(/[^a-z0-9_\-]/gi, '_').slice(0, 32);
-      const form = new FormData();
-      form.append('payload_json', JSON.stringify({
-        username:   'Xenostopic Contact',
-        avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
-        embeds:     [embed],
-      }));
-      form.append(
-        'files[0]',
-        new Blob([msgText], { type: 'text/plain' }),
-        `msg_from_${safeName}.txt`
-      );
-
-      const res = await fetch(VISITOR_WEBHOOK, { method: 'POST', body: form });
       if (res.ok || res.status === 204) {
         setContactStatus('✅  Sent!', 'success');
         if (contactMessageInput) contactMessageInput.value = '';
