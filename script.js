@@ -720,10 +720,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // ────────────────────────────────────────────────────────────────────────
 
   // ── GitHub block & page-scroll system ─────────────────────────────────────
-  const githubBlock = document.getElementById('github-block');
-  const scrollHint  = document.getElementById('scroll-hint');
-  const pageDot0    = document.getElementById('page-dot-0');
-  const pageDot1    = document.getElementById('page-dot-1');
+  const githubBlock  = document.getElementById('github-block');
+  const contactBlock = document.getElementById('contact-block');
+  const scrollHint   = document.getElementById('scroll-hint');
+  const pageDot0     = document.getElementById('page-dot-0');
+  const pageDot1     = document.getElementById('page-dot-1');
+  const pageDot2     = document.getElementById('page-dot-2');
 
   // ── Line-count helpers ─────────────────────────────────────────────────────
   const LC_CACHE_KEY = 'xeno_lineCounts_v1';
@@ -818,75 +820,59 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Page transition ────────────────────────────────────────────────────────
-  let currentPage      = 0;   // 0 = profile, 1 = github
+  let currentPage      = 0;   // 0 = profile, 1 = github, 2 = contact
   let isTransitioning  = false;
 
   function setPageDots(page) {
     pageDot0 && pageDot0.classList.toggle('active', page === 0);
     pageDot1 && pageDot1.classList.toggle('active', page === 1);
+    pageDot2 && pageDot2.classList.toggle('active', page === 2);
   }
 
   function goToPage(page) {
     if (isTransitioning || page === currentPage) return;
-    // Don't transition before start screen is dismissed
     if (startScreen && !startScreen.classList.contains('hidden')) return;
     isTransitioning = true;
     setPageDots(page);
 
-    if (page === 1) {
-      // ── profile → github ──────────────────────────────────────────────
-      gsap.to(profileBlock, {
-        rotationX: 0, rotationY: 0,   // cancel any live tilt
-        opacity: 0, y: -70,
-        duration: 0.45, ease: 'power2.in',
-        onComplete: () => { profileBlock.style.pointerEvents = 'none'; }
-      });
-      // hide scroll hint
-      if (scrollHint) gsap.to(scrollHint, { opacity: 0, duration: 0.25 });
+    const direction = page > currentPage ? 1 : -1;
+    const blocks    = [profileBlock, githubBlock, contactBlock];
+    const outBlock  = blocks[currentPage];
+    const inBlock   = blocks[page];
 
-      gsap.fromTo(githubBlock,
-        { opacity: 0, y: 70, xPercent: -50, yPercent: -50, rotationX: 0, rotationY: 0 },
-        {
-          opacity: 1, y: 0, xPercent: -50, yPercent: -50,
-          duration: 0.48, ease: 'power2.out', delay: 0.18,
-          onStart: () => { githubBlock.style.pointerEvents = 'auto'; },
-          onComplete: () => {
-            currentPage = 1;
-            isTransitioning = false;
-            initLineCount(); // lazy-load line counts
-            updateSideBtn(1);
-          }
-        }
-      );
-    } else {
-      // ── github → profile ──────────────────────────────────────────────
-      gsap.to(githubBlock, {
-        rotationX: 0, rotationY: 0,
-        opacity: 0, y: 70,
-        duration: 0.45, ease: 'power2.in',
-        onComplete: () => { githubBlock.style.pointerEvents = 'none'; }
-      });
+    // Always hide scroll hint when leaving any page
+    if (scrollHint) gsap.to(scrollHint, { opacity: 0, duration: 0.25 });
 
-      gsap.fromTo(profileBlock,
-        { opacity: 0, y: -70, xPercent: -50, yPercent: -50 },
-        {
-          opacity: 1, y: 0, xPercent: -50, yPercent: -50,
-          duration: 0.48, ease: 'power2.out', delay: 0.18,
-          onStart: () => { profileBlock.style.pointerEvents = 'auto'; },
-          onComplete: () => {
-            currentPage = 0;
-            isTransitioning = false;
-            if (scrollHint) gsap.to(scrollHint, { opacity: 1, duration: 0.5 });
-            updateSideBtn(0);
-          }
+    // Slide current page out
+    gsap.to(outBlock, {
+      rotationX: 0, rotationY: 0,
+      opacity: 0, y: direction * -70,
+      duration: 0.45, ease: 'power2.in',
+      onComplete: () => { outBlock.style.pointerEvents = 'none'; }
+    });
+
+    // Slide next page in from opposite direction
+    gsap.fromTo(inBlock,
+      { opacity: 0, y: direction * 70, xPercent: -50, yPercent: -50, rotationX: 0, rotationY: 0 },
+      {
+        opacity: 1, y: 0, xPercent: -50, yPercent: -50,
+        duration: 0.48, ease: 'power2.out', delay: 0.18,
+        onStart: () => { inBlock.style.pointerEvents = 'auto'; },
+        onComplete: () => {
+          currentPage     = page;
+          isTransitioning = false;
+          updateSideBtn(page);
+          if (page === 0 && scrollHint) gsap.to(scrollHint, { opacity: 1, duration: 0.5 });
+          if (page === 1) initLineCount();
         }
-      );
-    }
+      }
+    );
   }
 
   // Page dot clicks
   if (pageDot0) pageDot0.addEventListener('click', () => goToPage(0));
   if (pageDot1) pageDot1.addEventListener('click', () => goToPage(1));
+  if (pageDot2) pageDot2.addEventListener('click', () => goToPage(2));
 
   // ── Side nav button ────────────────────────────────────────────────────────
   const sideNavBtn   = document.getElementById('side-nav-btn');
@@ -895,23 +881,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateSideBtn(page) {
     if (!sideNavLabel || !sideNavArrow) return;
-    if (page === 0) {
-      // currently on profile → clicking goes to github
-      sideNavLabel.textContent = 'GitHub';
-      sideNavArrow.textContent = '▶';
-    } else {
-      // currently on github → clicking goes back to profile
-      sideNavLabel.textContent = 'Profile';
-      sideNavArrow.textContent = '◀';
-    }
+    // Label always points to the next page in the cycle (0→1→2→0)
+    const next = ['GitHub', 'Contact', 'Profile'];
+    sideNavLabel.textContent = next[page];
+    sideNavArrow.textContent = '▶';
   }
   updateSideBtn(0); // init
 
   if (sideNavBtn) {
     const doNavClick = () => {
-      goToPage(currentPage === 0 ? 1 : 0);
-      // update label after short delay so currentPage has flipped
-      setTimeout(() => updateSideBtn(currentPage === 0 ? 1 : 0), 700);
+      goToPage((currentPage + 1) % 3);
     };
     sideNavBtn.addEventListener('click',      doNavClick);
     sideNavBtn.addEventListener('touchstart', e => { e.preventDefault(); doNavClick(); });
@@ -927,8 +906,18 @@ document.addEventListener('DOMContentLoaded', () => {
   githubBlock.addEventListener('mouseleave', () => resetTilt(githubBlock));
   githubBlock.addEventListener('touchend',   () => resetTilt(githubBlock));
 
+  // ── 3-D tilt for contact block ─────────────────────────────────────────────
+  contactBlock.addEventListener('mousemove',  e => handleTilt(e, contactBlock));
+  contactBlock.addEventListener('touchmove',  e => {
+    e.preventDefault();
+    handleTilt(e, contactBlock);
+  }, { passive: false });
+  contactBlock.addEventListener('mouseleave', () => resetTilt(contactBlock));
+  contactBlock.addEventListener('touchend',   () => resetTilt(contactBlock));
+
   // ── Init github block position (hidden, below) ─────────────────────────────
-  gsap.set(githubBlock, { xPercent: -50, yPercent: -50, y: 80, opacity: 0 });
+  gsap.set(githubBlock,  { xPercent: -50, yPercent: -50, y: 80, opacity: 0 });
+  gsap.set(contactBlock, { xPercent: -50, yPercent: -50, y: 80, opacity: 0 });
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Start screen activation ────────────────────────────────────────────────
@@ -991,6 +980,11 @@ document.addEventListener('DOMContentLoaded', () => {
       githubBlock.style.background     = bg;
       githubBlock.style.borderColor    = border;
       githubBlock.style.backdropFilter = blur;
+    }
+    if (contactBlock) {
+      contactBlock.style.background     = bg;
+      contactBlock.style.borderColor    = border;
+      contactBlock.style.backdropFilter = blur;
     }
   });
   // ──────────────────────────────────────────────────────────────────────────
@@ -1091,4 +1085,118 @@ document.addEventListener('DOMContentLoaded', () => {
   profilePicture.addEventListener('click',      spinOrbit);
   profilePicture.addEventListener('touchstart', e => { e.preventDefault(); spinOrbit(); });
   // ──────────────────────────────────────────────────────────────────────────
+
+  // ── Contact form ────────────────────────────────────────────────────────────
+  const contactDiscordInput = document.getElementById('contact-discord');
+  const contactMessageInput = document.getElementById('contact-message');
+  const contactSendBtn      = document.getElementById('contact-send');
+  const contactStatusEl     = document.getElementById('contact-status');
+
+  function setContactStatus(msg, cls) {
+    if (!contactStatusEl) return;
+    contactStatusEl.textContent = msg;
+    contactStatusEl.className   = 'contact-status' + (cls ? ' ' + cls : '');
+  }
+
+  // Try Lanyard for a real avatar; fall back to Discord's default avatar CDN
+  async function resolveDiscordUser(input) {
+    const raw = input.trim();
+    // Looks like a Discord snowflake ID (17-19 digits)
+    if (/^\d{17,19}$/.test(raw)) {
+      try {
+        const res  = await fetch(`https://api.lanyard.rest/v1/users/${raw}`);
+        const data = await res.json();
+        if (data.success && data.data?.discord_user) {
+          const u   = data.data.discord_user;
+          const url = u.avatar
+            ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=256`
+            : defaultAvatar(raw);
+          return { name: u.global_name || u.username || raw, avatar: url };
+        }
+      } catch (_) {}
+      // Lanyard miss — use calculated default avatar
+      return { name: raw, avatar: defaultAvatar(raw) };
+    }
+    // Username string — use a generic Discord icon
+    return { name: raw, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' };
+  }
+
+  function defaultAvatar(userId) {
+    // Pomelo formula: (id >> 22) % 6  — safe with BigInt for large snowflakes
+    try { return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(userId) >> 22n) % 6}.png`; }
+    catch (_) { return 'https://cdn.discordapp.com/embed/avatars/0.png'; }
+  }
+
+  async function sendContactMessage() {
+    const discordRaw = (contactDiscordInput?.value || '').trim();
+    const msgText    = (contactMessageInput?.value  || '').trim();
+
+    if (!discordRaw) {
+      setContactStatus('Discord user / ID is required.', 'error');
+      contactDiscordInput?.focus();
+      return;
+    }
+    if (!msgText) {
+      setContactStatus('Message cannot be empty.', 'error');
+      contactMessageInput?.focus();
+      return;
+    }
+    if (VISITOR_WEBHOOK === '') {
+      setContactStatus('Webhook not configured yet.', 'error');
+      return;
+    }
+
+    if (contactSendBtn) contactSendBtn.disabled = true;
+    setContactStatus('Sending…', '');
+
+    try {
+      const user = await resolveDiscordUser(discordRaw);
+
+      const embed = {
+        title: '📬  New Contact Message',
+        color: 0x00CED1,
+        author: { name: user.name, icon_url: user.avatar },
+        fields: [
+          { name: '🎮  Submitted As', value: discordRaw,              inline: true  },
+          { name: '🕐  Sent At',      value: new Date().toUTCString(), inline: false },
+        ],
+        footer:    { text: 'xenostopic.xyz  •  Contact Form' },
+        timestamp: new Date().toISOString(),
+      };
+
+      // Send as multipart so the message arrives as a .txt attachment
+      const safeName = discordRaw.replace(/[^a-z0-9_\-]/gi, '_').slice(0, 32);
+      const form = new FormData();
+      form.append('payload_json', JSON.stringify({
+        username:   'Xenostopic Contact',
+        avatar_url: 'https://xenostopic.xyz/assets/profile.webp',
+        embeds:     [embed],
+      }));
+      form.append(
+        'files[0]',
+        new Blob([msgText], { type: 'text/plain' }),
+        `msg_from_${safeName}.txt`
+      );
+
+      const res = await fetch(VISITOR_WEBHOOK, { method: 'POST', body: form });
+      if (res.ok || res.status === 204) {
+        setContactStatus('✅  Sent!', 'success');
+        if (contactMessageInput) contactMessageInput.value = '';
+        setTimeout(() => setContactStatus('', ''), 5000);
+      } else {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[xeno/contact]', err);
+      setContactStatus('❌  Failed to send — try again.', 'error');
+    } finally {
+      if (contactSendBtn) contactSendBtn.disabled = false;
+    }
+  }
+
+  if (contactSendBtn) {
+    contactSendBtn.addEventListener('click',      sendContactMessage);
+    contactSendBtn.addEventListener('touchstart', e => { e.preventDefault(); sendContactMessage(); });
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 });
