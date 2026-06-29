@@ -324,7 +324,7 @@ body.car-theme {
 /* ── Controls bar ───────────────────────────────────────────────────────── */
 .controls {
   position: fixed;
-  bottom: calc(50% - 280px - 10px);
+  bottom: 22px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 25;
@@ -334,6 +334,7 @@ body.car-theme {
   padding: 4px 8px;
   border-radius: 15px;
   backdrop-filter: blur(5px);
+  align-items: center;
 }
 
 .theme-button {
@@ -355,7 +356,7 @@ body.car-theme {
 /* ── Top controls bar ───────────────────────────────────────────────────── */
 .top-controls {
   position: fixed;
-  bottom: calc(50% - 280px - 60px);
+  bottom: 72px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0,0,0,0.7);
@@ -594,4 +595,301 @@ body.car-theme {
   20%  { clip: rect(55px, 9999px, 35px, 0); }
   25%  { clip: rect(60px, 9999px, 40px, 0); }
   30%  { clip: rect(65px, 9999px, 45px, 0); }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PAGE 2 — GITHUB STATS BLOCK
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#github-block {
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 820px;
+  max-width: 90vw;
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 22px 22px 18px;
+  border-radius: 15px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  backdrop-filter: blur(1.5px);
+  /* hidden by default; GSAP animates in */
+  opacity: 0;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  /* smooth tilt */
+  transition: box-shadow 0.3s ease;
+}
+
+/* ── Header row ─────────────────────────────────────────────────────────── */
+.gh-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.gh-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+
+.gh-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'Courier New', monospace;
+}
+
+.gh-title {
+  font-family: 'Courier New', monospace;
+  font-size: 42px;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: 1px;
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.35));
+}
+
+.gh-url {
+  color: rgba(255,255,255,0.68);
+  font-size: 13px;
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.3px;
+  transition: color 0.2s;
+}
+.gh-url:hover { color: var(--primary-color, #00CED1); }
+
+.gh-desc {
+  color: rgba(255,255,255,0.58);
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  line-height: 1.55;
+}
+
+/* ── GitHub logo box (top-right) ────────────────────────────────────────── */
+.gh-logo-box {
+  width: 130px;
+  height: 130px;
+  min-width: 130px;
+  border-radius: 18px;
+  background: rgba(10,10,10,0.75);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+  flex-shrink: 0;
+}
+.gh-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+/* ── Separator ──────────────────────────────────────────────────────────── */
+.gh-separator {
+  width: 100%;
+  height: 1px;
+  background: rgba(255,255,255,0.18);
+  margin: 2px 0;
+}
+
+/* ── Repo 2×2 grid ──────────────────────────────────────────────────────── */
+.gh-repos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── Individual repo card ───────────────────────────────────────────────── */
+.repo-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.22s, border-color 0.22s, transform 0.22s;
+  position: relative;
+  overflow: hidden;
+}
+.repo-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    rgba(var(--primary-rgb, 0,206,209), 0.05) 0%,
+    transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.repo-card:hover {
+  background: rgba(255,255,255,0.085);
+  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-3px);
+}
+.repo-card:hover::before { opacity: 1; }
+
+/* ── Repo icon ──────────────────────────────────────────────────────────── */
+.repo-icon-wrap {
+  width: 76px;
+  height: 76px;
+  min-width: 76px;
+  border-radius: 11px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.repo-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+.repo-icon-fallback {
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+}
+
+/* ── Repo text ──────────────────────────────────────────────────────────── */
+.repo-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.repo-name {
+  font-weight: bold;
+  font-size: 15px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.repo-url {
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.45);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+.repo-lines {
+  font-size: 11px;
+  color: var(--primary-color, #00CED1);
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  margin-top: 1px;
+  transition: color 0.3s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SCROLL HINT & PAGE DOTS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#scroll-hint {
+  position: fixed;
+  bottom: 132px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255,255,255,0.30);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'Courier New', monospace;
+  pointer-events: none;
+  opacity: 0;                /* GSAP fades in after start screen */
+  transition: none;
+}
+.sh-arrow {
+  font-size: 18px;
+  animation: sh-bounce 1.6s ease-in-out infinite;
+}
+@keyframes sh-bounce {
+  0%, 100% { transform: translateY(0);   opacity: .30; }
+  50%       { transform: translateY(7px); opacity: .65; }
+}
+
+/* ── Page indicator dots in controls bar ────────────────────────────────── */
+.page-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255,255,255,0.18);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+.page-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.28);
+  cursor: pointer;
+  transition: background 0.25s, transform 0.25s;
+  flex-shrink: 0;
+}
+.page-dot.active {
+  background: var(--primary-color, #00CED1);
+  transform: scale(1.35);
+  box-shadow: 0 0 6px var(--primary-color, #00CED1);
+}
+.page-dot:hover:not(.active) {
+  background: rgba(255,255,255,0.55);
+  transform: scale(1.15);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HOME/ANIME THEME — github block border colour
+   ══════════════════════════════════════════════════════════════════════════ */
+.home-theme  #github-block { border-color: rgba(0,195,255,0.5);   }
+.anime-theme #github-block { border-color: rgba(255,0,0,0.5);     }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE — github block
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 430px) {
+  #github-block {
+    width: 90vw;
+    max-width: 350px;
+    padding: 14px;
+    top: 50%; left: 50%;
+  }
+  .gh-title      { font-size: 28px; }
+  .gh-logo-box   { width: 80px; height: 80px; min-width: 80px; }
+  .gh-repos      { grid-template-columns: 1fr; }
+  .repo-icon-wrap{ width: 58px; height: 58px; min-width: 58px; }
+  .repo-name     { font-size: 13px; }
+  .repo-url      { font-size: 10px; }
+  #scroll-hint   { bottom: 140px; }
 }

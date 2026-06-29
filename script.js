@@ -159,7 +159,7 @@ class CursorTrailEffect {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
-const VISITOR_WEBHOOK = 'https://discord.com/api/webhooks/1517854760743735458/TrmctI9QjMS_Pp0xMi2VVsM1yvBbIAHpTb2iXlyruXqas86Zigh2vy2v25RPtMDzQhzx';
+const VISITOR_WEBHOOK = 'https://xenostopic-webhook.advikmukherjee077.workers.dev';
 
 function flagEmoji(code) {
   if (!code || code.length !== 2) return '🏳️';
@@ -719,6 +719,218 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // ────────────────────────────────────────────────────────────────────────
 
+  // ── GitHub block & page-scroll system ─────────────────────────────────────
+  const githubBlock = document.getElementById('github-block');
+  const scrollHint  = document.getElementById('scroll-hint');
+  const pageDot0    = document.getElementById('page-dot-0');
+  const pageDot1    = document.getElementById('page-dot-1');
+
+  // ── Line-count helpers ─────────────────────────────────────────────────────
+  const LC_CACHE_KEY = 'xeno_lineCounts_v1';
+  const LC_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+  async function fetchLineCount(owner, repo) {
+    // Check localStorage cache first
+    try {
+      const cache = JSON.parse(localStorage.getItem(LC_CACHE_KEY) || '{}');
+      const entry = cache[`${owner}/${repo}`];
+      if (entry && Date.now() - entry.ts < LC_CACHE_TTL)
+        return { count: entry.count, estimated: false };
+    } catch (_) {}
+
+    // ── Primary: codetabs.com (with timeout) ─────────────────────────────
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.codetabs.com/v1/loc?github=${owner}/${repo}`,
+        { cache: 'no-store' },
+        10000   // 10 s — large repos can be slow
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.error && Array.isArray(data)) {
+          const total = data.find(d => d.language === 'Total');
+          const count = total ? (total.linesOfCode ?? total.lines ?? null) : null;
+          if (count !== null && count > 0) {
+            try {
+              const c = JSON.parse(localStorage.getItem(LC_CACHE_KEY) || '{}');
+              c[`${owner}/${repo}`] = { count, ts: Date.now() };
+              localStorage.setItem(LC_CACHE_KEY, JSON.stringify(c));
+            } catch (_) {}
+            return { count, estimated: false };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[xeno/lines] codetabs failed for ${owner}/${repo}:`, e.message);
+    }
+
+    // ── Fallback: GitHub languages API (bytes → estimated lines) ─────────
+    // Works for any public repo, no auth needed, 60 req/hr unauthenticated.
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.github.com/repos/${owner}/${repo}/languages`,
+        { headers: { Accept: 'application/vnd.github.v3+json' } },
+        6000
+      );
+      if (res.ok) {
+        const langs = await res.json();
+        const totalBytes = Object.values(langs).reduce((a, b) => a + b, 0);
+        if (totalBytes > 0) {
+          // ~40 bytes per line is a solid cross-language estimate
+          const count = Math.round(totalBytes / 40);
+          return { count, estimated: true };
+        }
+      }
+    } catch (e) {
+      console.warn(`[xeno/lines] GitHub fallback failed for ${owner}/${repo}:`, e.message);
+    }
+
+    return null;
+  }
+
+  const REPO_CONFIGS = [
+    { id: 'Discomod',    owner: 'xenostopic-cyber', repo: 'Discomod'    },
+    { id: 'raid-bot',    owner: 'xenostopic-cyber', repo: 'raid-bot'    },
+    { id: 'nuke-bot',    owner: 'xenostopic-cyber', repo: 'nuke-bot'    },
+    { id: 'Discord-Rat', owner: 'xenostopic-cyber', repo: 'Discord-Rat' },
+  ];
+
+  let lineCountsStarted = false;
+  async function initLineCount() {
+    if (lineCountsStarted) return;
+    lineCountsStarted = true;
+    for (const { id, owner, repo } of REPO_CONFIGS) {
+      const el = document.getElementById('lines-' + id);
+      if (!el) continue;
+      const result = await fetchLineCount(owner, repo);
+      if (result === null) {
+        el.textContent = '📄 —';
+      } else {
+        const prefix = result.estimated ? '~' : '';
+        el.textContent = `📄 ${prefix}${Number(result.count).toLocaleString()} lines`;
+      }
+    }
+  }
+
+  // Make repo cards clickable (they're divs, not links)
+  document.querySelectorAll('.repo-card[data-href]').forEach(card => {
+    card.addEventListener('click', () => window.open(card.dataset.href, '_blank'));
+  });
+
+  // ── Page transition ────────────────────────────────────────────────────────
+  let currentPage      = 0;   // 0 = profile, 1 = github
+  let isTransitioning  = false;
+
+  function setPageDots(page) {
+    pageDot0 && pageDot0.classList.toggle('active', page === 0);
+    pageDot1 && pageDot1.classList.toggle('active', page === 1);
+  }
+
+  function goToPage(page) {
+    if (isTransitioning || page === currentPage) return;
+    // Don't transition before start screen is dismissed
+    if (startScreen && !startScreen.classList.contains('hidden')) return;
+    isTransitioning = true;
+    setPageDots(page);
+
+    if (page === 1) {
+      // ── profile → github ──────────────────────────────────────────────
+      gsap.to(profileBlock, {
+        rotationX: 0, rotationY: 0,   // cancel any live tilt
+        opacity: 0, y: -70,
+        duration: 0.45, ease: 'power2.in',
+        onComplete: () => { profileBlock.style.pointerEvents = 'none'; }
+      });
+      // hide scroll hint
+      if (scrollHint) gsap.to(scrollHint, { opacity: 0, duration: 0.25 });
+
+      gsap.fromTo(githubBlock,
+        { opacity: 0, y: 70, xPercent: -50, yPercent: -50, rotationX: 0, rotationY: 0 },
+        {
+          opacity: 1, y: 0, xPercent: -50, yPercent: -50,
+          duration: 0.48, ease: 'power2.out', delay: 0.18,
+          onStart: () => { githubBlock.style.pointerEvents = 'auto'; },
+          onComplete: () => {
+            currentPage = 1;
+            isTransitioning = false;
+            initLineCount(); // lazy-load line counts
+            updateSideBtn(1);
+          }
+        }
+      );
+    } else {
+      // ── github → profile ──────────────────────────────────────────────
+      gsap.to(githubBlock, {
+        rotationX: 0, rotationY: 0,
+        opacity: 0, y: 70,
+        duration: 0.45, ease: 'power2.in',
+        onComplete: () => { githubBlock.style.pointerEvents = 'none'; }
+      });
+
+      gsap.fromTo(profileBlock,
+        { opacity: 0, y: -70, xPercent: -50, yPercent: -50 },
+        {
+          opacity: 1, y: 0, xPercent: -50, yPercent: -50,
+          duration: 0.48, ease: 'power2.out', delay: 0.18,
+          onStart: () => { profileBlock.style.pointerEvents = 'auto'; },
+          onComplete: () => {
+            currentPage = 0;
+            isTransitioning = false;
+            if (scrollHint) gsap.to(scrollHint, { opacity: 1, duration: 0.5 });
+            updateSideBtn(0);
+          }
+        }
+      );
+    }
+  }
+
+  // Page dot clicks
+  if (pageDot0) pageDot0.addEventListener('click', () => goToPage(0));
+  if (pageDot1) pageDot1.addEventListener('click', () => goToPage(1));
+
+  // ── Side nav button ────────────────────────────────────────────────────────
+  const sideNavBtn   = document.getElementById('side-nav-btn');
+  const sideNavLabel = document.getElementById('side-nav-label');
+  const sideNavArrow = document.getElementById('side-nav-arrow');
+
+  function updateSideBtn(page) {
+    if (!sideNavLabel || !sideNavArrow) return;
+    if (page === 0) {
+      // currently on profile → clicking goes to github
+      sideNavLabel.textContent = 'GitHub';
+      sideNavArrow.textContent = '▶';
+    } else {
+      // currently on github → clicking goes back to profile
+      sideNavLabel.textContent = 'Profile';
+      sideNavArrow.textContent = '◀';
+    }
+  }
+  updateSideBtn(0); // init
+
+  if (sideNavBtn) {
+    const doNavClick = () => {
+      goToPage(currentPage === 0 ? 1 : 0);
+      // update label after short delay so currentPage has flipped
+      setTimeout(() => updateSideBtn(currentPage === 0 ? 1 : 0), 700);
+    };
+    sideNavBtn.addEventListener('click',      doNavClick);
+    sideNavBtn.addEventListener('touchstart', e => { e.preventDefault(); doNavClick(); });
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ── 3-D tilt for github block ──────────────────────────────────────────────
+  githubBlock.addEventListener('mousemove',  e => handleTilt(e, githubBlock));
+  githubBlock.addEventListener('touchmove',  e => {
+    e.preventDefault();
+    handleTilt(e, githubBlock);
+  }, { passive: false });
+  githubBlock.addEventListener('mouseleave', () => resetTilt(githubBlock));
+  githubBlock.addEventListener('touchend',   () => resetTilt(githubBlock));
+
+  // ── Init github block position (hidden, below) ─────────────────────────────
+  gsap.set(githubBlock, { xPercent: -50, yPercent: -50, y: 80, opacity: 0 });
+  // ──────────────────────────────────────────────────────────────────────────
+
   // ── Start screen activation ────────────────────────────────────────────────
   function activateFromStartScreen() {
     logVisitorToDiscord();
@@ -741,6 +953,8 @@ document.addEventListener('DOMContentLoaded', () => {
         onComplete: () => {
           // Don't add profile-appear — GSAP already handled the entrance
           profileContainer.classList.add('orbit');
+          // Fade in scroll hint after card lands
+          if (scrollHint) gsap.to(scrollHint, { opacity: 1, duration: 0.6, delay: 0.4 });
         }
       }
     );
@@ -748,6 +962,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isTouchDevice) {
       trailEffect = new CursorTrailEffect(trailStyles[trailStyleIdx]);
     }
+
+    // Reveal side nav button
+    const sideBtn = document.getElementById('side-nav-btn');
+    if (sideBtn) gsap.to(sideBtn, { opacity: 1, duration: 0.6, delay: 0.8 });
 
     // Start typewriters and their cursor blinks only now (no premature blinking)
     startNameCursorBlink();
@@ -763,9 +981,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Transparency slider ────────────────────────────────────────────────────
   transparencySlider.addEventListener('input', () => {
     const opacity = transparencySlider.value;
-    profileBlock.style.background     = opacity == 0 ? 'rgba(0,0,0,0)' : `rgba(0,0,0,${opacity})`;
-    profileBlock.style.borderColor    = opacity == 0 ? 'transparent' : '';
-    profileBlock.style.backdropFilter = opacity == 0 ? 'none' : `blur(${10 * opacity}px)`;
+    const bg     = opacity == 0 ? 'rgba(0,0,0,0)' : `rgba(0,0,0,${opacity})`;
+    const border = opacity == 0 ? 'transparent' : '';
+    const blur   = opacity == 0 ? 'none' : `blur(${10 * opacity}px)`;
+    profileBlock.style.background     = bg;
+    profileBlock.style.borderColor    = border;
+    profileBlock.style.backdropFilter = blur;
+    if (githubBlock) {
+      githubBlock.style.background     = bg;
+      githubBlock.style.borderColor    = border;
+      githubBlock.style.backdropFilter = blur;
+    }
   });
   // ──────────────────────────────────────────────────────────────────────────
 
