@@ -790,15 +790,111 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  const REPO_CONFIGS = [
-    { id: 'Discomod',    owner: 'xenostopic-cyber', repo: 'Discomod'    },
-    { id: 'raid-bot',    owner: 'xenostopic-cyber', repo: 'raid-bot'    },
-    { id: 'nuke-bot',    owner: 'xenostopic-cyber', repo: 'nuke-bot'    },
-    { id: 'Discord-Rat', owner: 'xenostopic-cyber', repo: 'Discord-Rat' },
-  ];
+  // ── stuff.txt driven repo cards ────────────────────────────────────────────
+  // Everything about the repo grid (names, owners, icons, tags, README paths)
+  // comes from stuff.txt. Edit that file, not this one or index.html.
+  let REPO_CONFIGS = [];  // [{ id, owner, repo }] — only entries with a real repo
+  let REPO_DETAILS = {};  // { id: { name, tags, githubUrl, zipUrl, readmeUrl, icon, image } }
+
+  function parseStuffTxt(text) {
+    const configs = [];
+    const details = {};
+    const blocks = text.split(/\n\s*\[repo\]/i).slice(1); // drop header/comments before first [repo]
+    for (const block of blocks) {
+      const fields = {};
+      block.split('\n').forEach(line => {
+        line = line.trim();
+        if (!line || line.startsWith('#')) return;
+        const idx = line.indexOf('=');
+        if (idx === -1) return;
+        const key = line.slice(0, idx).trim().toLowerCase();
+        const val = line.slice(idx + 1).trim();
+        fields[key] = val;
+      });
+      if (!fields.id) continue;
+
+      const id     = fields.id;
+      const owner  = fields.owner || '';
+      const repo   = fields.repo  || '';
+      const hasRepo = owner && repo;
+      const tags   = (fields.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+
+      details[id] = {
+        name:      fields.name || id,
+        tags:      tags.length ? tags : ['placeholder'],
+        githubUrl: hasRepo ? `https://github.com/${owner}/${repo}` : null,
+        zipUrl:    hasRepo ? `https://github.com/${owner}/${repo}/archive/refs/heads/main.zip` : null,
+        readmeUrl: fields.readme || `assets/readmes/${id}.md`,
+        icon:      fields.icon || '📦',
+        image:     fields.image || '',
+      };
+
+      if (hasRepo) configs.push({ id, owner, repo });
+    }
+    return { configs, details };
+  }
+
+  function renderRepoCards() {
+    const grid = document.getElementById('gh-repos');
+    if (!grid) return;
+
+    const order = Object.keys(REPO_DETAILS);
+    grid.innerHTML = order.map(id => {
+      const d = REPO_DETAILS[id];
+      const iconImg = d.image
+        ? `<img class="repo-icon" src="${d.image}" alt="${d.name}"
+                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+           <div class="repo-icon-fallback" style="display:none">${d.icon}</div>`
+        : `<div class="repo-icon-fallback" style="display:flex">${d.icon}</div>`;
+      const urlLine = d.githubUrl ? d.githubUrl.replace(/^https?:\/\//, '') : '—';
+      return `
+                <div class="repo-card" data-repo-id="${id}"${d.githubUrl ? ` data-href="${d.githubUrl}"` : ''}>
+                    <div class="repo-icon-wrap">
+                        ${iconImg}
+                    </div>
+                    <div class="repo-info">
+                        <div class="repo-name">${d.name}</div>
+                        <div class="repo-url">${urlLine}</div>
+                        <div class="repo-lines" id="lines-${id}">${d.githubUrl ? '⏳ Loading...' : '📄 —'}</div>
+                    </div>
+                </div>`;
+    }).join('');
+
+    // Wire clicks now that cards exist in the DOM
+    grid.querySelectorAll('.repo-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.repoId;
+        if (id && REPO_DETAILS[id]) {
+          openRepoTab(id);
+        } else if (card.dataset.href) {
+          window.open(card.dataset.href, '_blank');
+        }
+      });
+    });
+  }
+
+  let repoConfigLoaded = false;
+  async function loadRepoConfig() {
+    if (repoConfigLoaded) return;
+    try {
+      const res = await fetch('stuff.txt');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      const parsed = parseStuffTxt(text);
+      REPO_CONFIGS = parsed.configs;
+      REPO_DETAILS = parsed.details;
+    } catch (err) {
+      console.warn('[xeno/stuff] failed to load stuff.txt:', err);
+      REPO_CONFIGS = [];
+      REPO_DETAILS = {};
+    }
+    repoConfigLoaded = true;
+    renderRepoCards();
+  }
 
   let lineCountsStarted = false;
   async function initLineCount() {
+    await loadRepoConfig();
     if (lineCountsStarted) return;
     lineCountsStarted = true;
     for (const { id, owner, repo } of REPO_CONFIGS) {
@@ -811,13 +907,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const prefix = result.estimated ? '~' : '';
         el.textContent = `📄 ${prefix}${Number(result.count).toLocaleString()} lines`;
       }
+      // Keep the repo detail tab's line-count in sync if it's currently showing this repo
+      if (currentRepoTabId === id && repoTabLoc) repoTabLoc.textContent = el.textContent;
     }
   }
-
-  // Make repo cards clickable (they're divs, not links)
-  document.querySelectorAll('.repo-card[data-href]').forEach(card => {
-    card.addEventListener('click', () => window.open(card.dataset.href, '_blank'));
-  });
 
   // ── Page transition ────────────────────────────────────────────────────────
   let currentPage      = 0;   // 0 = profile, 1 = github, 2 = contact
@@ -1193,4 +1286,179 @@ document.addEventListener('DOMContentLoaded', () => {
     contactSendBtn.addEventListener('touchstart', e => { e.preventDefault(); sendContactMessage(); });
   }
   // ────────────────────────────────────────────────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // REPO DETAIL TAB — in-page "GitHub-style" view opened from a repo card
+  // ══════════════════════════════════════════════════════════════════════════
+  // Card data (name, tags, links, README path) is loaded from stuff.txt at
+  // runtime via loadRepoConfig() above — REPO_DETAILS is declared up there
+  // and populated once stuff.txt is fetched. Nothing to edit here.
+
+  // ── Tiny Markdown → HTML renderer ──────────────────────────────────────────
+  // Covers what READMEs actually use: ATX + setext headings, bold/italic,
+  // inline code, fenced code blocks, links, lists, blockquotes, hr, tables.
+  function renderMarkdown(md) {
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Pull fenced code blocks out first so nothing inside them gets touched
+    const blocks = [];
+    md = md.replace(/```([a-zA-Z0-9]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      blocks.push('<pre><code>' + esc(code.replace(/\n$/, '')) + '</code></pre>');
+      return '\u0000BLOCK' + (blocks.length - 1) + '\u0000';
+    });
+
+    const inline = t => esc(t)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+    const lines = md.replace(/\r\n/g, '\n').split('\n');
+    let html = '', listType = null, para = [], tableRows = [];
+
+    const flushPara  = () => { if (para.length) { html += `<p>${inline(para.join(' '))}</p>`; para = []; } };
+    const flushList  = () => { if (listType) { html += `</${listType}>`; listType = null; } };
+    const flushTable = () => {
+      if (!tableRows.length) return;
+      const rows = tableRows.filter(r => !r.every(c => /^:?-+:?$/.test(c)));
+      const [header, ...body] = rows;
+      html += '<table><thead><tr>' + header.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>';
+      body.forEach(r => { html += '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>'; });
+      html += '</tbody></table>';
+      tableRows = [];
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      const next    = (lines[i + 1] || '').trim();
+
+      const blockMatch = trimmed.match(/^\u0000BLOCK(\d+)\u0000$/);
+      if (blockMatch) { flushPara(); flushList(); flushTable(); html += blocks[+blockMatch[1]]; continue; }
+      if (!trimmed)   { flushPara(); flushList(); flushTable(); continue; }
+
+      if (/^\|.*\|$/.test(trimmed)) { tableRows.push(trimmed.slice(1, -1).split('|').map(c => c.trim())); continue; }
+      flushTable();
+
+      let m;
+      if ((m = trimmed.match(/^(#{1,4})\s+(.*)$/))) {
+        flushPara(); flushList();
+        html += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`;
+        continue;
+      }
+      // Setext headings: a standalone text line directly followed by an underline of = or -
+      if (para.length === 0 && trimmed && /^=+$/.test(next)) { flushList(); html += `<h1>${inline(trimmed)}</h1>`; i++; continue; }
+      if (para.length === 0 && trimmed && /^-{1,}$/.test(next) && !/^[-*]\s/.test(trimmed)) { flushList(); html += `<h2>${inline(trimmed)}</h2>`; i++; continue; }
+
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) { flushPara(); flushList(); html += '<hr>'; continue; }
+      if ((m = trimmed.match(/^>\s?(.*)$/))) { flushPara(); flushList(); html += `<blockquote>${inline(m[1])}</blockquote>`; continue; }
+      if ((m = trimmed.match(/^[-*]\s+(.*)$/))) { flushPara(); if (listType !== 'ul') { flushList(); html += '<ul>'; listType = 'ul'; } html += `<li>${inline(m[1])}</li>`; continue; }
+      if ((m = trimmed.match(/^\d+\.\s+(.*)$/))) { flushPara(); if (listType !== 'ol') { flushList(); html += '<ol>'; listType = 'ol'; } html += `<li>${inline(m[1])}</li>`; continue; }
+
+      flushList();
+      para.push(trimmed);
+    }
+    flushPara(); flushList(); flushTable();
+    return html;
+  }
+
+  // ── DOM refs ────────────────────────────────────────────────────────────────
+  const repoTabOverlay    = document.getElementById('repo-tab-overlay');
+  const repoTab           = document.getElementById('repo-tab');
+  const repoTabClose      = document.getElementById('repo-tab-close');
+  const repoTabTitle      = document.getElementById('repo-tab-title');
+  const repoTabTags       = document.getElementById('repo-tab-tags');
+  const repoTabLoc        = document.getElementById('repo-tab-loc');
+  const repoTabGithubLink = document.getElementById('repo-tab-github-link');
+  const repoTabZipLink    = document.getElementById('repo-tab-zip-link');
+  const repoTabReadme     = document.getElementById('repo-tab-readme');
+
+  let currentRepoTabId = null;
+  let repoTabIsOpen     = false;
+
+  function getLocText(id) {
+    const el = document.getElementById('lines-' + id);
+    return el ? el.textContent : '📄 —';
+  }
+
+  function setRepoTabAction(linkEl, url, activeTitle) {
+    if (url) {
+      linkEl.href  = url;
+      linkEl.title = activeTitle;
+      linkEl.classList.remove('repo-tab-action-box--disabled');
+    } else {
+      linkEl.removeAttribute('href');
+      linkEl.title = 'Not available yet';
+      linkEl.classList.add('repo-tab-action-box--disabled');
+    }
+  }
+
+  async function openRepoTab(id) {
+    const data = REPO_DETAILS[id];
+    if (!data || !repoTabOverlay) return;
+
+    currentRepoTabId = id;
+    repoTabIsOpen     = true;
+
+    repoTabTitle.textContent = data.name;
+    repoTabTags.innerHTML    = data.tags.map(t => `<span class="repo-tab-tag">${t}</span>`).join('');
+    repoTabLoc.textContent   = getLocText(id);
+    setRepoTabAction(repoTabGithubLink, data.githubUrl, 'Open on GitHub');
+    setRepoTabAction(repoTabZipLink,    data.zipUrl,    'Download ZIP');
+    repoTabReadme.innerHTML  = '<p style="opacity:.5">Loading README…</p>';
+
+    gsap.set(repoTab, { rotationX: 0, rotationY: 0 });
+    gsap.to(repoTabOverlay, {
+      opacity: 1, duration: 0.3, ease: 'power2.out',
+      onStart: () => { repoTabOverlay.style.pointerEvents = 'auto'; }
+    });
+    gsap.fromTo(repoTab,
+      { y: 24, scale: 0.96, opacity: 0 },
+      { y: 0, scale: 1, opacity: 1, duration: 0.4, ease: 'power2.out' }
+    );
+
+    if (!data._readmeCache) {
+      try {
+        const res = await fetch(data.readmeUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data._readmeCache = await res.text();
+      } catch (err) {
+        console.warn('[xeno/repo-tab] README fetch failed:', err);
+        if (currentRepoTabId === id) {
+          repoTabReadme.innerHTML = data.githubUrl
+            ? `<p>Couldn't load the README here — <a href="${data.githubUrl}" target="_blank" rel="noopener">view it on GitHub</a> instead.</p>`
+            : `<p style="opacity:.6">No README yet — drop one at <code>${data.readmeUrl}</code>.</p>`;
+        }
+        return;
+      }
+    }
+    if (currentRepoTabId === id) {
+      repoTabReadme.innerHTML = renderMarkdown(data._readmeCache);
+    }
+  }
+
+  function closeRepoTab() {
+    if (!repoTabOverlay || !repoTabIsOpen) return;
+    repoTabIsOpen    = false;
+    currentRepoTabId = null;
+    resetTilt(repoTab);
+    gsap.to(repoTab, { y: 16, scale: 0.97, opacity: 0, duration: 0.25, ease: 'power2.in' });
+    gsap.to(repoTabOverlay, {
+      opacity: 0, duration: 0.28, ease: 'power2.in',
+      onComplete: () => { repoTabOverlay.style.pointerEvents = 'none'; }
+    });
+  }
+
+  if (repoTabClose)   repoTabClose.addEventListener('click', closeRepoTab);
+  if (repoTabOverlay) repoTabOverlay.addEventListener('click', e => { if (e.target === repoTabOverlay) closeRepoTab(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && repoTabIsOpen) closeRepoTab(); });
+
+  // Same 3-D cursor tilt as the other page blocks
+  if (repoTab) {
+    repoTab.addEventListener('mousemove',  e => handleTilt(e, repoTab));
+    repoTab.addEventListener('touchmove',  e => { e.preventDefault(); handleTilt(e, repoTab); });
+    repoTab.addEventListener('mouseleave', () => resetTilt(repoTab));
+    repoTab.addEventListener('touchend',   () => resetTilt(repoTab));
+  }
+  // ──────────────────────────────────────────────────────────────────────────
 });
+

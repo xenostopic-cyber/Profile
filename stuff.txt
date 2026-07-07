@@ -1,0 +1,63 @@
+# ============================================================================
+#  stuff.txt — edit THIS file to change your repo cards. Nothing else.
+# ============================================================================
+#
+#  Each repo is one block, separated by blank lines. Fields:
+#
+#    id       = short unique slug, no spaces (used internally, e.g. "discomod")
+#    name     = display name shown on the card and in the popup
+#    owner    = your GitHub username (repo owner)
+#    repo     = the GitHub repo name (as it appears in the URL)
+#    icon     = emoji shown if there's no image icon (e.g. 🛡️)
+#    image    = optional path to an icon image (e.g. assets/discomod.webp)
+#               leave blank / delete the line to just use the emoji
+#    tags     = comma-separated list of tags shown in the popup
+#    readme   = path to a markdown file with the project's README content
+#               (used in the in-page popup). Leave as-is if unsure.
+#
+#  To leave a slot as a "Coming Soon" placeholder (no real repo yet):
+#    - set owner and repo to blank (just "owner =" and "repo =")
+#    - the card will show "Coming Soon" and won't link anywhere
+#
+#  Order here = order shown on the page.
+# ============================================================================
+
+[repo]
+id = discomod
+name = Discomod
+owner = xenostopic-cyber
+repo = Discomod
+icon = 🛡️
+image = 
+tags = automation, discord-bot, utilities, bloxfruits
+readme = assets/readmes/discomod-readme.md
+
+[repo]
+id = project-2
+name = Raid Bot
+owner = xenostopic-cyber
+repo = raid-bot
+icon = ⚡
+image =
+tags = raider, spammer
+readme = assets/readmes/project-2.md
+
+[repo]
+id = project-3
+name = Nuke Bot
+owner = xenostopic-cyber
+repo = nuke-bot
+icon = ☢️
+image =
+tags = nuke-bot, nuker
+readme = assets/readmes/project-3.md
+
+[repo]
+id = project-4
+name = Discord RAT
+owner = xenostopic-cyber
+repo = Discord-Rat
+icon = 🐀
+image =
+tags = ratcord, remote-admin, keylogger
+readme = assets/readmes/project-4.md
