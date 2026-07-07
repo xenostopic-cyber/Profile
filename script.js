@@ -1462,3 +1462,54 @@ document.addEventListener('DOMContentLoaded', () => {
   // ──────────────────────────────────────────────────────────────────────────
 });
 
+
+// ── Troll → Rickroll DVD-bounce window ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const trollTrigger = document.getElementById('troll-trigger');
+  const rrWindow      = document.getElementById('rickroll-window');
+  const rrClose       = document.getElementById('rickroll-close');
+  const rrVideo       = document.getElementById('rickroll-video');
+
+  if (!trollTrigger || !rrWindow) return;
+
+  let bounceId   = null;
+  let posX = 40, posY = 40;
+  let velX = 2.6, velY = 2.1;
+
+  function stepBounce() {
+    const w = rrWindow.offsetWidth  || 420;
+    const h = rrWindow.offsetHeight || 260;
+    const maxX = window.innerWidth  - w;
+    const maxY = window.innerHeight - h;
+
+    posX += velX;
+    posY += velY;
+
+    if (posX <= 0)      { posX = 0;    velX = Math.abs(velX); }
+    if (posX >= maxX)   { posX = maxX; velX = -Math.abs(velX); }
+    if (posY <= 0)      { posY = 0;    velY = Math.abs(velY); }
+    if (posY >= maxY)   { posY = maxY; velY = -Math.abs(velY); }
+
+    rrWindow.style.transform = `translate(${posX}px, ${posY}px)`;
+    bounceId = requestAnimationFrame(stepBounce);
+  }
+
+  function openRickroll() {
+    rrWindow.classList.add('active');
+    posX = Math.random() * (window.innerWidth  - 440);
+    posY = Math.random() * (window.innerHeight - 300);
+    velX = (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 1.5);
+    velY = (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 1.5);
+    if (rrVideo) { rrVideo.currentTime = 0; rrVideo.play().catch(() => {}); }
+    if (!bounceId) bounceId = requestAnimationFrame(stepBounce);
+  }
+
+  function closeRickroll() {
+    rrWindow.classList.remove('active');
+    if (rrVideo) rrVideo.pause();
+    if (bounceId) { cancelAnimationFrame(bounceId); bounceId = null; }
+  }
+
+  trollTrigger.addEventListener('click', openRickroll);
+  if (rrClose) rrClose.addEventListener('click', closeRickroll);
+});

@@ -469,6 +469,62 @@ a[href*="snapchat"] .social-icon {
     transform: scale(1.35) rotateY(15deg);
 }
 
+/* ── Troll trigger icon (next to name) ──────────────────────────────── */
+#troll-trigger {
+    width: 58px;
+    height: 58px;
+    object-fit: contain;
+    cursor: pointer;
+    pointer-events: auto;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.7));
+    transition: transform 0.3s ease;
+}
+#troll-trigger:hover {
+    transform: scale(1.2) rotate(-8deg);
+}
+
+/* ── Rickroll DVD-bounce window ─────────────────────────────────────── */
+#rickroll-window {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 420px;
+    z-index: 99999;
+    background: #000;
+    border: 3px solid #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.9), 0 0 15px rgba(255,255,255,0.4);
+    overflow: hidden;
+    display: none;
+}
+#rickroll-window.active { display: block; }
+#rickroll-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #111;
+    color: #fff;
+    font-size: 12px;
+    padding: 5px 8px;
+    letter-spacing: 1px;
+    user-select: none;
+}
+#rickroll-close {
+    cursor: pointer;
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 0 8px;
+    line-height: 1.6;
+}
+#rickroll-close:hover {
+    background: rgba(255,60,60,0.8);
+}
+#rickroll-window video {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
         /* ── Discord Presence ───────────────────────────────────────────── */
         #discord-presence {
             display: flex; align-items: center; gap: 8px;
@@ -1277,6 +1333,7 @@ a[href*="snapchat"] .social-icon {
                 <div class="profile-info">
                     <div class="name-and-badges">
                         <div id="profile-name">Xenostopic</div>
+                        <img src="assets/troll.png" alt="Troll" id="troll-trigger" title="???">
                     </div>
 
                     <div id="discord-presence">
@@ -1501,6 +1558,15 @@ a[href*="snapchat"] .social-icon {
             <span id="side-nav-arrow">▶</span>
             <span id="side-nav-label">GitHub</span>
         </button>
+
+        <!-- ── Rickroll DVD-bounce window ─────────────────────────────── -->
+        <div id="rickroll-window">
+            <div id="rickroll-titlebar">
+                <span>GET RICKROLLED NOOB</span>
+                <span id="rickroll-close">✕</span>
+            </div>
+            <video id="rickroll-video" src="assets/Rickroll.mp4" autoplay loop playsinline></video>
+        </div>
 
     </div><!-- /container -->
 
