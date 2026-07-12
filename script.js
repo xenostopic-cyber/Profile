@@ -1195,11 +1195,45 @@ document.addEventListener('DOMContentLoaded', () => {
     contactStatusEl.className   = 'contact-status' + (cls ? ' ' + cls : '');
   }
 
-  // Try Lanyard for a real avatar; fall back to Discord's default avatar CDN
+  // Discord avatar lookup, proxied through a Cloudflare Worker that holds
+  // the bot token server-side (see worker.js). Falls back to Lanyard, then
+  // to a calculated default avatar, if the Worker is unreachable.
+  const AVATAR_WORKER_URL = 'https://curly-union-b46e.advikmukherjee077.workers.dev';
+
+  // Discord epoch: 2015-01-01T00:00:00.000Z, in ms since Unix epoch.
+  const DISCORD_EPOCH = 1420070400000n;
+
+  // Same check as the Worker — rejects digit-length-valid junk (e.g. all
+  // 1s or 9s) that isn't a real snowflake, by decoding its embedded
+  // timestamp and checking it falls in a sane range.
+  function isPlausibleSnowflake(raw) {
+    if (!/^\d{17,20}$/.test(raw)) return false;
+    let id;
+    try { id = BigInt(raw); } catch (_) { return false; }
+    const timestampMs = (id >> 22n) + DISCORD_EPOCH;
+    const now = BigInt(Date.now());
+    const oneDayMs = 86_400_000n;
+    if (timestampMs < DISCORD_EPOCH) return false;
+    if (timestampMs > now + oneDayMs) return false;
+    return true;
+  }
+
   async function resolveDiscordUser(input) {
     const raw = input.trim();
-    // Looks like a Discord snowflake ID (17-19 digits)
-    if (/^\d{17,19}$/.test(raw)) {
+
+    // Looks like a plausible Discord snowflake ID
+    if (isPlausibleSnowflake(raw)) {
+      try {
+        const res = await fetch(`${AVATAR_WORKER_URL}?id=${raw}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.avatar) {
+            return { name: data.name || raw, avatar: data.avatar };
+          }
+        }
+      } catch (_) { /* fall through to Lanyard */ }
+
+      // Worker miss/unreachable — try Lanyard as a secondary source
       try {
         const res  = await fetch(`https://api.lanyard.rest/v1/users/${raw}`);
         const data = await res.json();
@@ -1211,10 +1245,13 @@ document.addEventListener('DOMContentLoaded', () => {
           return { name: u.global_name || u.username || raw, avatar: url };
         }
       } catch (_) {}
-      // Lanyard miss — use calculated default avatar
+
+      // Everything failed — use calculated default avatar
       return { name: raw, avatar: defaultAvatar(raw) };
     }
-    // Username string — use a generic Discord icon
+
+    // Username string (not a numeric ID) — can't be resolved to a specific
+    // user via the API without a shared server, so use a generic icon.
     return { name: raw, avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' };
   }
 
@@ -1260,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
               { name: '🎮  Submitted As', value: discordRaw,               inline: true  },
               { name: '🕐  Sent At',      value: new Date().toUTCString(),  inline: false },
             ],
-            footer:    { text: 'xenostopic.xyz  •  Contact Form' },
+            footer:    { text: 'gg.cybernova.site.je  •  Contact Form' },
             timestamp: new Date().toISOString(),
           }],
         }),
